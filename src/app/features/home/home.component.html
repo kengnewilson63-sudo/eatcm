@@ -1,0 +1,118 @@
+<div class="page-enter">
+
+  <!-- HERO -->
+  <section class="relative h-[300px] md:h-[420px] overflow-hidden">
+    <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1400&q=85" alt="EatsCM Hero" class="absolute inset-0 w-full h-full object-cover object-center" style="animation:slowZoom 8s ease-in-out infinite alternate"/>
+    <div class="absolute inset-0" style="background:linear-gradient(135deg,rgba(26,26,31,0.85) 0%,rgba(26,26,31,0.4) 60%,transparent 100%)"></div>
+    <div class="relative z-10 h-full max-w-7xl mx-auto px-4 flex flex-col justify-center">
+      <p class="text-white/70 text-xs font-bold tracking-widest uppercase mb-2"> Douala </p>
+      <h1 class="text-white text-3xl md:text-5xl font-extrabold leading-tight mb-4 max-w-lg" style="text-shadow:0 2px 20px rgba(0,0,0,0.3)">
+        Tes plats préférés,<br/>livrés chez toi
+      </h1>
+      <p class="text-white/80 text-base mb-6 max-w-sm hidden sm:block">Commande dans les meilleurs restaurants en quelques clics.</p>
+      <div class="flex items-center gap-3 flex-wrap">
+        <a routerLink="/search" class="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white no-underline active:scale-95" style="background:#FF5A36;box-shadow:0 4px 20px rgba(255,90,54,0.5)">
+          Commander maintenant
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a routerLink="/discover" class="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white no-underline border-2 border-white/40 hover:bg-white/10 active:scale-95">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Voir les vidéos
+        </a>
+      </div>
+    </div>
+    <div class="absolute bottom-4 right-4 hidden md:flex gap-2">
+      <div class="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2.5 text-white text-center"><p class="text-lg font-extrabold leading-none">50+</p><p class="text-xs text-white/70 mt-0.5">Restaurants</p></div>
+      <div class="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2.5 text-white text-center"><p class="text-lg font-extrabold leading-none">30 min</p><p class="text-xs text-white/70 mt-0.5">Livraison moy.</p></div>
+    </div>
+  </section>
+
+  <!-- CATÉGORIES -->
+  <section class="max-w-7xl mx-auto px-4 py-6">
+    <h2 class="text-lg font-extrabold text-secondary mb-4">Catégories</h2>
+    <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+      @for (cat of categories; track cat.nom) {
+        <button (click)="selectCategorie(cat.nom)" class="flex flex-col items-center gap-2 min-w-[72px] cursor-pointer border-none bg-transparent p-0 transition-all active:scale-95">
+          <div class="w-16 h-16 rounded-2xl overflow-hidden transition-all duration-200" [class]="selectedCategorie()===cat.nom ? 'ring-2 ring-primary ring-offset-2 shadow-lg scale-110' : 'hover:scale-105'">
+            <img [src]="cat.img" [alt]="cat.nom" class="w-full h-full object-cover"/>
+          </div>
+          <span class="text-xs font-semibold whitespace-nowrap" [class]="selectedCategorie()===cat.nom ? 'text-primary' : 'text-gray-600'">{{ cat.nom }}</span>
+        </button>
+      }
+    </div>
+  </section>
+
+  <!-- TEASER DISCOVER -->
+  <section class="mx-4 mb-6 rounded-3xl overflow-hidden relative h-40 md:h-52">
+    <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1200&q=80" alt="Feed vidéo" class="absolute inset-0 w-full h-full object-cover"/>
+    <div class="absolute inset-0" style="background:linear-gradient(90deg,rgba(26,26,31,0.9) 0%,rgba(26,26,31,0.4) 60%,transparent 100%)"></div>
+    <div class="relative z-10 h-full flex items-center px-6 gap-4">
+      <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur border border-white/30 flex items-center justify-center flex-shrink-0">
+        <svg class="w-6 h-6 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <div class="flex-1">
+        <p class="text-white/70 text-xs font-bold uppercase tracking-widest mb-1">Nouveau </p>
+        <h3 class="text-white font-extrabold text-lg leading-tight mb-2">Découvre les plats<br/>en vidéo</h3>
+        <a routerLink="/discover" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-secondary no-underline active:scale-95" style="background:#FFC247">
+          Voir le feed <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESTAURANTS POPULAIRES -->
+  <section class="max-w-7xl mx-auto px-4 pb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-extrabold text-secondary">Restaurants populaires</h2>
+      <a routerLink="/search" class="text-sm font-semibold text-primary no-underline hover:underline">Voir tout</a>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      @for (resto of restaurantsFiltres(); track resto.id) {
+        <a [routerLink]="['/restaurant', resto.id]" class="restaurant-card group no-underline block">
+          <div class="relative h-44 overflow-hidden">
+            <img [src]="resto.image" [alt]="resto.nom" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"/>
+            <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.5) 0%,transparent 60%)"></div>
+            @if (resto.promo) {
+              <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold" [class]="resto.promo==='Nouveau' ? 'bg-secondary text-white' : 'bg-accent text-secondary'">{{ resto.promo }}</span>
+            }
+            <!-- Certifié -->
+            @if (resto.certifie) {
+              <span class="absolute top-3 right-10 w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-sm">
+                <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              </span>
+            }
+            <!-- Bouton favori -->
+            <button (click)="toggleFavori(resto.id, $event)"
+                    class="absolute top-3 right-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow-sm border-none cursor-pointer active:scale-90 transition-transform">
+              <svg class="w-4 h-4 transition-colors" [class]="favoris.isFavori(resto.id) ? 'text-red-500 fill-red-500' : 'text-gray-400 fill-none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
+            <!-- Statut ouvert/fermé -->
+            <div class="absolute bottom-3 left-3 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full flex-shrink-0" [class]="resto.ouvert ? 'bg-success' : 'bg-gray-400'"></span>
+              <span class="text-white text-xs font-semibold">{{ resto.ouvert ? 'Ouvert' : 'Fermé' }}</span>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <h3 class="font-bold text-secondary text-base leading-tight">{{ resto.nom }}</h3>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <span class="text-xs font-bold text-secondary">{{ resto.note }}</span>
+                <span class="text-xs text-muted">({{ resto.totalAvis }})</span>
+              </div>
+            </div>
+            <p class="text-sm text-muted mb-3">{{ resto.categorie }}</p>
+            <div class="flex items-center justify-between text-xs text-muted border-t border-gray-50 pt-3">
+              <span class="flex items-center gap-1 font-medium">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                {{ resto.tempsLivraison }} min
+              </span>
+              <span class="font-medium">{{ resto.fraisLivraison | number }} FCFA</span>
+            </div>
+          </div>
+        </a>
+      }
+    </div>
+  </section>
+
+</div>

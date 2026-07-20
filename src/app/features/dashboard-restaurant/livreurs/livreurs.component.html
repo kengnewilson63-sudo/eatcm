@@ -1,0 +1,219 @@
+<div class="min-h-screen bg-gray-50 p-4 md:p-6 page-enter">
+  <div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-extrabold text-secondary">👥 Mes Livreurs</h1>
+        <p class="text-sm text-muted mt-1">Gère ton équipe de livreurs</p>
+      </div>
+      <button (click)="modalInvit.set(true)"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-sm border-none cursor-pointer active:scale-95 transition-transform w-full sm:w-auto justify-center"
+              style="background:linear-gradient(135deg,#FF5A36,#FF7A5C);box-shadow:0 4px 16px rgba(255,90,54,0.35)">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Ajouter un livreur
+      </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="bg-white rounded-2xl p-4" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+        <p class="text-2xl font-extrabold text-secondary">{{ stats().total }}</p>
+        <p class="text-xs text-muted font-medium">Total livreurs</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+        <p class="text-2xl font-extrabold text-green-600">{{ stats().actifs }}</p>
+        <p class="text-xs text-muted font-medium">Actifs</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+        <p class="text-2xl font-extrabold text-amber-600">{{ stats().attente }}</p>
+        <p class="text-xs text-muted font-medium">En attente</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+        <p class="text-2xl font-extrabold text-primary">{{ stats().cashTotal | number }} FCFA</p>
+        <p class="text-xs text-muted font-medium">Cash à récupérer</p>
+      </div>
+    </div>
+
+    <!-- Liste des livreurs -->
+    <div class="bg-white rounded-2xl overflow-hidden" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-bold text-secondary">Équipe actuelle</h2>
+      </div>
+
+      @if (livreurs().length === 0) {
+        <div class="text-center py-12">
+          <div class="text-5xl mb-3">🛵</div>
+          <p class="font-bold text-secondary text-sm">Aucun livreur</p>
+          <p class="text-xs text-muted mt-1">Ajoute ton premier livreur pour commencer</p>
+        </div>
+      }
+
+      <div class="divide-y divide-gray-50">
+        @for (livreur of livreurs(); track livreur.id) {
+          <div class="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-gray-50 transition-colors">
+            
+            <!-- Avatar -->
+            <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0"
+                 [class]="livreur.statut === 'ACTIF' ? 'bg-green-500' : livreur.statut === 'EN_ATTENTE' ? 'bg-amber-500' : 'bg-gray-400'">
+              {{ getInitials(livreur) }}
+            </div>
+
+            <!-- Info - CORRIGÉ pour mobile -->
+            <div class="flex-1 min-w-0">
+              <!-- Nom + badge sur mobile -->
+              <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                <p class="font-bold text-secondary text-sm sm:text-base truncate">
+                  {{ livreur.prenom }} {{ livreur.nom }}
+                </p>
+                <span class="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold w-fit"
+                      [class]="badgeClass(livreur.statut)">
+                  {{ badgeLabel(livreur.statut) }}
+                </span>
+              </div>
+              
+              <!-- Téléphone -->
+              <p class="text-xs text-muted mt-0.5">{{ livreur.telephone || livreur.email }}</p>
+              
+              <!-- Stats - CORRIGÉ en grid pour mobile -->
+              <div class="grid grid-cols-2 sm:flex sm:items-center gap-x-3 gap-y-1 mt-1.5">
+                <span class="text-xs text-muted">🛵 {{ livreur.livraisons }} livraisons</span>
+                <span class="text-xs text-muted">💰 {{ livreur.gainsMois | number }} FCFA/mois</span>
+                @if (livreur.cashDu > 0) {
+                  <span class="text-xs font-bold text-red-500 col-span-2 sm:col-auto">
+                    💸 {{ livreur.cashDu | number }} FCFA à récupérer
+                  </span>
+                }
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              <button (click)="toggleStatut(livreur.id)"
+                      [class]="livreur.statut === 'ACTIF' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-500 bg-gray-50 hover:bg-gray-100'"
+                      class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center border-none cursor-pointer transition-colors"
+                      title="{{ livreur.statut === 'ACTIF' ? 'Désactiver' : 'Activer' }}">
+                @if (livreur.statut === 'ACTIF') {
+                  <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                    <line x1="12" y1="2" x2="12" y2="12"/>
+                  </svg>
+                } @else {
+                  <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                }
+              </button>
+              <button (click)="retirer(livreur.id)"
+                      class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 border-none cursor-pointer transition-colors"
+                      title="Retirer">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Invitation (identique) -->
+  @if (modalInvit()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" (click)="modalInvit.set(false)"></div>
+      <div class="relative bg-white rounded-2xl w-full max-w-md overflow-hidden" style="box-shadow:0 20px 60px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto">
+        
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="font-bold text-secondary">📨 Inviter un livreur</h3>
+          <button (click)="modalInvit.set(false)" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center border-none bg-transparent cursor-pointer">
+            <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <!-- Choix SMS / Email -->
+          <div class="flex gap-2 p-1 bg-gray-100 rounded-xl">
+            <button (click)="modeInvit.set('SMS')"
+                    class="flex-1 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition-all"
+                    [class]="modeInvit() === 'SMS' ? 'bg-white text-secondary shadow-sm' : 'text-muted bg-transparent'">
+               SMS
+            </button>
+            <button (click)="modeInvit.set('EMAIL')"
+                    class="flex-1 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition-all"
+                    [class]="modeInvit() === 'EMAIL' ? 'bg-white text-secondary shadow-sm' : 'text-muted bg-transparent'">
+               Email
+            </button>
+          </div>
+
+          <!-- Nom -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">Nom complet *</label>
+            <input type="text" placeholder="Ex: Jean Mbarga" [value]="invitNom()" (input)="onField('nom', $event)"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 text-sm font-medium focus:border-primary focus:outline-none"/>
+          </div>
+
+          <!-- Téléphone -->
+          @if (modeInvit() === 'SMS') {
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-secondary uppercase tracking-wider">Numéro *</label>
+              <div class="flex gap-2">
+                <span class="px-3 py-3 rounded-xl border-2 border-gray-100 text-sm font-medium text-muted bg-gray-50 flex-shrink-0">+237</span>
+                <input type="tel" placeholder="677 123 456" [value]="invitTel()" (input)="onField('tel', $event)"
+                       class="flex-1 px-4 py-3 rounded-xl border-2 border-gray-100 text-sm font-medium focus:border-primary focus:outline-none"/>
+              </div>
+            </div>
+          }
+
+          <!-- Email -->
+          @if (modeInvit() === 'EMAIL') {
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-secondary uppercase tracking-wider">Email *</label>
+              <input type="email" placeholder="jean@example.com" [value]="invitEmail()" (input)="onField('email', $event)"
+                     class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 text-sm font-medium focus:border-primary focus:outline-none"/>
+            </div>
+          }
+
+          <!-- Erreur -->
+          @if (invitErreur()) {
+            <div class="p-3 rounded-xl bg-red-50 text-red-600 text-xs font-bold">
+               {{ invitErreur() }}
+            </div>
+          }
+
+          <!-- Succès -->
+          @if (invitSucces()) {
+            <div class="p-4 bg-green-50 rounded-xl text-center space-y-2">
+              <div class="text-2xl">✅</div>
+              <p class="font-bold text-green-700 text-sm">Invitation envoyée !</p>
+              @if (lienGenere()) {
+                <div class="mt-2 p-2 bg-white rounded-lg border border-green-200">
+                  <p class="text-xs text-muted break-all">{{ lienGenere() }}</p>
+                  <button (click)="copierLien()" class="mt-1 px-3 py-1 rounded-lg bg-green-600 text-white text-xs font-bold border-none cursor-pointer">
+                    📋 Copier
+                  </button>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Bouton -->
+          @if (!invitSucces()) {
+            <button (click)="inviter()"
+                    class="w-full py-3.5 rounded-xl text-white font-bold text-sm border-none cursor-pointer"
+                    style="background:linear-gradient(135deg,#FF5A36,#FF7A5C);box-shadow:0 4px 16px rgba(255,90,54,0.35)">
+              Envoyer l'invitation
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

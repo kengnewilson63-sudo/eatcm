@@ -1,0 +1,106 @@
+<div class="min-h-screen bg-gray-50 flex flex-col">
+  <div class="px-4 pt-6">
+    <a routerLink="/home" class="inline-flex items-center gap-2 text-muted hover:text-secondary no-underline text-sm font-medium transition-colors">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour
+    </a>
+  </div>
+
+  <div class="flex-1 flex flex-col justify-center px-4 py-8 max-w-md mx-auto w-full">
+
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 mx-auto mb-4">
+        <svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="32" fill="#FF5A36"/>
+          <path d="M16 24h32M16 32h20M16 40h26" stroke="white" stroke-width="4" stroke-linecap="round"/></svg>
+      </div>
+      <h1 class="text-2xl font-extrabold text-secondary mb-1">Bon retour </h1>
+      <p class="text-muted text-sm">Connecte-toi pour commander tes plats préférés</p>
+    </div>
+
+    <div class="bg-white rounded-3xl p-6 shadow-card space-y-4">
+
+      <!-- Email -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-bold text-secondary uppercase tracking-wider">Email</label>
+        <div class="relative">
+          <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <input type="email" placeholder="ton@email.com" [value]="email()" (input)="onEmailChange($event)" class="input-field pl-10"/>
+        </div>
+      </div>
+
+      <!-- Mot de passe -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-bold text-secondary uppercase tracking-wider">Mot de passe</label>
+        <div class="relative">
+          <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input [type]="showPass() ? 'text' : 'password'" placeholder="••••••••" [value]="motDePasse()" (input)="onPassChange($event)" class="input-field pl-10 pr-10"/>
+          <button type="button" (click)="togglePass()" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-secondary border-none bg-transparent cursor-pointer p-0">
+            @if (!showPass()) { <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> }
+            @else { <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> }
+          </button>
+        </div>
+      </div>
+
+      <!-- Erreur -->
+      @if (erreur()) {
+        <div class="flex items-center gap-2 px-4 py-3 bg-red-50 rounded-xl border border-red-100">
+          <svg class="w-4 h-4 text-red-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p class="text-sm text-red-600 font-medium">{{ erreur() }}</p>
+        </div>
+      }
+
+      <!-- Message mot de passe oublié -->
+      @if (mdpMsg()) {
+        <div class="flex items-center gap-2 px-4 py-3 bg-blue-50 rounded-xl border border-blue-100">
+          <svg class="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p class="text-sm text-blue-600 font-medium">{{ mdpMsg() }}</p>
+        </div>
+      }
+
+      <!-- Bouton connexion -->
+      <button (click)="onSubmit()" [disabled]="loading()"
+              class="w-full py-3.5 rounded-full text-white font-bold text-sm border-none cursor-pointer active:scale-95 disabled:opacity-60 transition-all"
+              style="background:#FF5A36;box-shadow:0 4px 16px rgba(255,90,54,0.35)">
+        @if (loading()) {
+          <span class="flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Connexion...
+          </span>
+        } @else { Se connecter }
+      </button>
+
+      <!-- Mot de passe oublié — CORRECTION fonctionnel -->
+      <div class="text-center">
+        <button type="button" (click)="motDePasseOublie()"
+                class="text-primary font-semibold border-none bg-transparent cursor-pointer hover:underline text-xs">
+          Mot de passe oublié ?
+        </button>
+      </div>
+    </div>
+
+    <!-- Séparateur -->
+    <div class="flex items-center gap-3 my-5">
+      <div class="flex-1 h-px bg-gray-200"></div>
+      <span class="text-xs font-semibold text-muted">ou tester rapidement</span>
+      <div class="flex-1 h-px bg-gray-200"></div>
+    </div>
+
+    <!-- Connexion rapide par rôle -->
+    <div class="grid grid-cols-2 gap-3">
+      @for (r of [
+        {role:'CLIENT',     label:'🛒 Client',      cls:'role-badge-client'},
+        {role:'RESTAURANT', label:'🍽️ Restaurant',  cls:'role-badge-restaurant'},
+        {role:'LIVREUR',    label:'🛵 Livreur',     cls:'role-badge-livreur'},
+        {role:'ADMIN',      label:'⚙️ Admin',       cls:'role-badge-admin'}
+      ]; track r.role) {
+        <button (click)="connexionRapide($any(r.role))"
+                class="flex items-center justify-center gap-2 px-4 py-3 bg-white rounded-2xl border border-gray-100 text-sm font-semibold text-secondary hover:border-primary hover:text-primary transition-all active:scale-95 cursor-pointer shadow-sm">
+          {{ r.label }}
+        </button>
+      }
+    </div>
+
+    <p class="text-center text-sm text-muted mt-6">
+      Pas encore de compte ?
+      <a routerLink="/auth/register" class="text-primary font-bold no-underline hover:underline ml-1">S'inscrire</a>
+    </p>
+  </div>
+</div>

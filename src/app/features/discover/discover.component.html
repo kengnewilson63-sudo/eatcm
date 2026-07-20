@@ -1,0 +1,249 @@
+<div class="discover-wrapper">
+  <div class="feed-container">
+    @for (video of videos(); track video.id; let i = $index) {
+      <div class="feed-item">
+
+        <!-- Vidéo — toujours muted au départ (règle navigateur) -->
+        <video
+          #videoRef
+          [attr.data-id]="video.id"
+          [src]="video.videoUrl"
+          muted
+          loop
+          playsinline
+          preload="auto"
+          class="feed-video"
+          (click)="togglePlay(video.id)">
+        </video>
+
+        <!-- Icône pause -->
+        @if (videoEnPause() === video.id) {
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div class="w-16 h-16 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
+              <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16"/>
+                <rect x="14" y="4" width="4" height="16"/>
+              </svg>
+            </div>
+          </div>
+        }
+
+        <!-- Gradients -->
+        <div class="absolute inset-x-0 top-0 h-40 feed-gradient-top pointer-events-none"></div>
+        <div class="absolute inset-x-0 bottom-0 h-3/4 feed-gradient-bottom pointer-events-none"></div>
+
+        <!-- Infos plat bas gauche -->
+        <div class="absolute bottom-28 left-4 right-20 z-10">
+          <div class="flex items-center gap-2 mb-3">
+            <img [src]="video.restaurantLogo" [alt]="video.restaurantNom"
+                 class="w-9 h-9 rounded-full border-2 border-white object-cover flex-shrink-0"/>
+            <span class="text-white text-sm font-bold drop-shadow-sm">{{ video.restaurantNom }}</span>
+            <!-- FIX — lien vers le bon restaurant -->
+            <a [routerLink]="['/restaurant', video.restaurantId]"
+               class="ml-auto px-3 py-1 rounded-full text-xs font-bold text-white
+                      border border-white/60 no-underline hover:bg-white/20 transition-colors">
+              Voir
+            </a>
+          </div>
+
+          <h2 class="text-white text-xl font-extrabold leading-tight mb-1 drop-shadow-md">
+            {{ video.platNom }}
+          </h2>
+          <p class="text-white/80 text-sm leading-relaxed mb-3 line-clamp-2">
+            {{ video.platDescription }}
+          </p>
+
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-white font-extrabold text-lg">{{ video.prix | number }} FCFA</span>
+            <span class="flex items-center gap-1 text-white/70 text-xs">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              {{ video.tempsPreparation }} min
+            </span>
+          </div>
+
+          <!-- Bouton commander -->
+          <button (click)="commander(video)"
+                  class="flex items-center gap-2 px-5 py-2.5 rounded-full text-white
+                         font-bold text-sm border-none cursor-pointer transition-all active:scale-95"
+                  [style]="addedToCart() === video.id
+                    ? 'background:#22C55E;box-shadow:0 4px 16px rgba(34,197,94,0.4)'
+                    : 'background:#FF5A36;box-shadow:0 4px 16px rgba(255,90,54,0.4)'">
+            @if (addedToCart() === video.id) {
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              Ajouté !
+            } @else {
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+              Commander
+            }
+          </button>
+        </div>
+
+        <!-- Boutons droite -->
+        <div class="absolute right-3 bottom-32 z-10 flex flex-col items-center gap-5">
+
+          <!-- SON — FIX bouton son avec état clair -->
+          <button (click)="toggleMute()" class="flex flex-col items-center gap-1 border-none bg-transparent cursor-pointer">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                 [class]="muted() ? 'bg-black/40 backdrop-blur' : 'bg-primary/80 backdrop-blur'">
+              @if (muted()) {
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <line x1="23" y1="9" x2="17" y2="15"/>
+                  <line x1="17" y1="9" x2="23" y2="15"/>
+                </svg>
+              } @else {
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              }
+            </div>
+            <span class="text-white text-[10px] font-bold drop-shadow-sm">
+              {{ muted() ? 'Muet' : 'Son ON' }}
+            </span>
+          </button>
+
+          <!-- LIKE -->
+          <button (click)="toggleLike(video)"
+                  class="flex flex-col items-center gap-1 border-none bg-transparent
+                         cursor-pointer active:scale-90 transition-transform">
+            <div class="w-11 h-11 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
+              <svg class="w-6 h-6 transition-all duration-200"
+                   [class]="video.liked ? 'text-red-500 fill-red-500' : 'text-white fill-none'"
+                   viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </div>
+            <span class="text-white text-xs font-bold drop-shadow-sm">{{ formatCount(video.likes) }}</span>
+          </button>
+
+          <!-- COMMENTAIRES -->
+          <button (click)="ouvrirCommentaires(video)"
+                  class="flex flex-col items-center gap-1 border-none bg-transparent
+                         cursor-pointer active:scale-90 transition-transform">
+            <div class="w-11 h-11 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <span class="text-white text-xs font-bold drop-shadow-sm">
+              {{ formatCount(video.commentaires.length) }}
+            </span>
+          </button>
+
+          <!-- PARTAGER -->
+          <button (click)="partager(video)"
+                  class="flex flex-col items-center gap-1 border-none bg-transparent
+                         cursor-pointer active:scale-90 transition-transform">
+            <div class="w-11 h-11 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+            </div>
+            <span class="text-white text-xs font-bold drop-shadow-sm">{{ formatCount(video.partages) }}</span>
+          </button>
+        </div>
+
+        <!-- Swipe hint -->
+        @if (i === 0) {
+          <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1
+                      z-10 pointer-events-none"
+               style="animation:bounce 2s ease-in-out infinite">
+            <p class="text-white/60 text-xs font-medium">Swipe pour voir plus</p>
+            <svg class="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Panel commentaires -->
+  @if (commentOpen()) {
+    <div class="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+         (click)="fermerCommentaires()"
+         style="animation:fadeIn 0.2s ease-out">
+    </div>
+
+    <div class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl flex flex-col"
+         style="max-height:75vh;animation:slideUp 0.35s cubic-bezier(0.16,1,0.3,1)">
+
+      <!-- Handle -->
+      <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
+        <div class="w-10 h-1 rounded-full bg-gray-200"></div>
+      </div>
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
+        <h3 class="font-bold text-secondary">
+          Commentaires ({{ activeComments().length }})
+        </h3>
+        <button (click)="fermerCommentaires()"
+                class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Liste -->
+      <div id="comments-list" class="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        @if (activeComments().length === 0) {
+          <div class="text-center py-10">
+            <p class="text-3xl mb-2">💬</p>
+            <p class="font-bold text-secondary text-sm mb-1">Aucun commentaire</p>
+            <p class="text-xs text-muted">Sois le premier à commenter !</p>
+          </div>
+        }
+        @for (c of activeComments(); track c.id) {
+          <div class="flex gap-3">
+            <img [src]="c.avatar" [alt]="c.auteur"
+                 class="w-9 h-9 rounded-full object-cover flex-shrink-0"/>
+            <div class="flex-1">
+              <div class="flex items-baseline gap-2 mb-1">
+                <span class="text-sm font-bold text-secondary">{{ c.auteur }}</span>
+                <span class="text-xs text-muted">{{ c.date }}</span>
+              </div>
+              <p class="text-sm text-secondary leading-relaxed">{{ c.texte }}</p>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Input -->
+      <div class="px-4 py-3 border-t border-gray-100 flex items-center gap-3 pb-safe flex-shrink-0">
+        <img src="https://i.pravatar.cc/40?img=10" alt="Moi"
+             class="w-9 h-9 rounded-full object-cover flex-shrink-0"/>
+        <div class="flex-1 flex items-center gap-2 bg-gray-50 rounded-full px-4 py-2.5
+                    border border-transparent focus-within:border-primary transition-colors">
+          <input type="text"
+                 placeholder="Ajouter un commentaire..."
+                 [value]="nouveauComment()"
+                 (input)="onCommentChange($event)"
+                 (keydown.enter)="ajouterCommentaire()"
+                 class="flex-1 bg-transparent border-none outline-none text-sm
+                        font-medium font-[inherit]"/>
+          <button (click)="ajouterCommentaire()"
+                  [disabled]="!nouveauComment().trim()"
+                  class="flex-shrink-0 border-none bg-transparent cursor-pointer
+                         disabled:opacity-40 p-0 active:scale-90 transition-transform">
+            <svg class="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

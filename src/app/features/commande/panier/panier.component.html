@@ -1,0 +1,50 @@
+<div class="min-h-screen bg-gray-50 page-enter">
+  <div class="sticky top-16 z-30 bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3"><a routerLink="/home" class="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center no-underline active:scale-90"><svg class="w-4 h-4 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></a><div><h1 class="text-lg font-extrabold text-secondary">Mon panier</h1>@if(panier()){<p class="text-xs text-muted">{{panier()!.restaurantNom}}</p>}</div></div>
+    @if(panier()){<button (click)="vider()" class="text-xs font-semibold text-red-400 border-none bg-transparent cursor-pointer px-3 py-1.5 rounded-full hover:bg-red-50">Vider</button>}
+  </div>
+  @if(!panier()||totalItems()===0){
+    <div class="flex flex-col items-center justify-center px-4 py-20 text-center">
+      <div class="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-5"><svg class="w-10 h-10 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
+      <h2 class="text-xl font-extrabold text-secondary mb-2">Ton panier est vide</h2>
+      <p class="text-sm text-muted mb-6 max-w-xs">Explore nos restaurants et ajoute tes plats préférés</p>
+      <a routerLink="/home" class="px-6 py-3 rounded-full text-white font-bold text-sm no-underline" style="background:#FF5A36">Découvrir les restaurants</a>
+    </div>
+  }
+  @if(panier()&&totalItems()>0){
+    <div class="max-w-lg mx-auto px-4 py-4 pb-48">
+      <div class="space-y-3 mb-6">
+        @for(item of panier()!.items;track item.plat.id){
+          <div class="bg-white rounded-2xl p-4 flex items-center gap-3" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+            <div class="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0"><img [src]="item.plat.imageUrl||'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200'" class="w-full h-full object-cover"/></div>
+            <div class="flex-1 min-w-0"><h3 class="font-bold text-secondary text-sm truncate">{{item.plat.nom}}</h3><p class="text-sm font-extrabold text-primary mt-1">{{item.plat.prix|number}} FCFA</p><p class="text-xs text-muted mt-0.5">Sous-total : {{item.sousTotal|number}} FCFA</p></div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <button (click)="retirer(item.plat.id)" class="w-8 h-8 rounded-full border-none flex items-center justify-center cursor-pointer active:scale-90 bg-gray-100 text-secondary"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/></svg></button>
+              <span class="text-sm font-extrabold text-secondary min-w-[20px] text-center">{{item.quantite}}</span>
+              <button (click)="ajouter(item.plat.id)" class="w-8 h-8 rounded-full border-none flex items-center justify-center cursor-pointer active:scale-90 text-white" style="background:#FF5A36"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+          </div>
+        }
+      </div>
+      <div class="bg-white rounded-2xl p-5 mb-4" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+        <h3 class="font-bold text-secondary mb-4">Résumé</h3>
+        <div class="space-y-3">
+          <div class="flex justify-between text-sm"><span class="text-muted">Sous-total ({{totalItems()}} article{{totalItems()>1?'s':''}})</span><span class="font-semibold text-secondary">{{totalPrix()|number}} FCFA</span></div>
+          <div class="flex justify-between text-sm"><span class="text-muted">Frais de livraison</span><span class="font-semibold text-secondary">{{fraisLivraison()|number}} FCFA</span></div>
+          <div class="h-px bg-gray-100"></div>
+          <div class="flex justify-between"><span class="font-bold text-secondary">Total</span><span class="font-extrabold text-primary text-lg">{{totalFinal()|number}} FCFA</span></div>
+        </div>
+      </div>
+      <div class="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-100">
+        <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
+        <p class="text-xs text-amber-700 font-medium">Frais calculés selon la distance au checkout (0-3km=1000, 3-6km=1500, 6-10km=2500 FCFA)</p>
+      </div>
+    </div>
+    <div class="fixed bottom-24 md:top-28 md:bottom-auto left-4 right-4 md:left-auto md:right-6 max-w-lg md:max-w-xs mx-auto md:mx-0 z-40">
+      <button (click)="commander()" class="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-white font-bold border-none cursor-pointer" style="background:linear-gradient(135deg,#FF5A36,#FF7A5C);box-shadow:0 8px 28px rgba(255,90,54,0.45)">
+        <span class="text-sm">Passer la commande</span>
+        <div class="flex items-center gap-2"><span class="font-extrabold">{{totalFinal()|number}} FCFA</span><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+      </button>
+    </div>
+  }
+</div>

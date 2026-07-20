@@ -1,0 +1,85 @@
+<div class="flex h-screen bg-gray-50 overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-300 md:relative md:translate-x-0"
+         [class.-translate-x-full]="!sidebarOpen()"
+         [class.translate-x-0]="sidebarOpen()">
+
+    <!-- Logo + rôle -->
+    <div class="flex items-center gap-3 px-5 py-5 border-b border-gray-100 flex-shrink-0">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#FF5A36">
+        <svg viewBox="0 0 32 32" fill="none" class="w-5 h-5">
+          <path d="M6 10h20M6 16h12M6 22h15" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-extrabold text-secondary text-sm">EatsCM</p>
+        <!-- Badge rôle visible dans sidebar -->
+        <span [class]="getRoleBadgeClass()" class="mt-1">{{ getRoleLabel() }}</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 overflow-y-auto p-3 space-y-1">
+      @for (item of navItems(); track item.route) {
+        <a [routerLink]="item.route" routerLinkActive="bg-primary/10 text-primary font-semibold"
+           (click)="closeMenu()"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-secondary transition-all text-sm font-medium no-underline">
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path [attr.d]="item.icon"/>
+          </svg>
+          {{ item.label }}
+        </a>
+      }
+    </nav>
+
+    <!-- Footer sidebar -->
+    <div class="p-3 border-t border-gray-100 space-y-1 flex-shrink-0">
+      <a routerLink="/home" (click)="closeMenu()"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-500 hover:bg-gray-50 text-sm font-medium no-underline transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Retour à l'app
+      </a>
+      <button (click)="logout()"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-50 text-sm font-medium transition-colors border-none bg-transparent cursor-pointer font-[inherit] text-left">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Déconnexion
+      </button>
+    </div>
+  </aside>
+
+  <!-- Overlay mobile -->
+  @if (sidebarOpen()) {
+    <div class="fixed inset-0 bg-black/40 z-30 md:hidden" (click)="closeMenu()"></div>
+  }
+
+  <!-- Contenu principal -->
+  <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+
+    <!-- Topbar -->
+    <header class="bg-white border-b border-gray-100 px-4 md:px-6 py-3.5 flex items-center justify-between flex-shrink-0">
+      <button class="md:hidden w-9 h-9 rounded-xl hover:bg-gray-50 flex items-center justify-center border-none bg-transparent cursor-pointer"
+              (click)="toggleSidebar()">
+        <svg class="w-5 h-5 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      <div class="flex items-center gap-3 ml-auto">
+        <div class="hidden md:block text-right">
+          <p class="text-sm font-bold text-secondary">{{ auth.currentUser()?.prenom }} {{ auth.currentUser()?.nom }}</p>
+          <p class="text-xs text-muted">{{ auth.currentUser()?.email }}</p>
+        </div>
+        <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-extrabold text-xs">
+          {{ getInitials() }}
+        </div>
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6">
+      <router-outlet/>
+    </main>
+  </div>
+</div>
+<app-toast/>

@@ -1,0 +1,29 @@
+<div class="page-enter space-y-5">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="dashboard-card"><p class="text-xs font-bold text-muted uppercase mb-1">Total</p><p class="text-2xl font-extrabold text-secondary">{{stats.total}}</p></div>
+    <div class="dashboard-card border-l-4 border-success"><p class="text-xs font-bold text-muted uppercase mb-1">Actifs</p><p class="text-2xl font-extrabold text-success">{{stats.actifs}}</p></div>
+    <div class="dashboard-card border-l-4 border-amber-400"><p class="text-xs font-bold text-muted uppercase mb-1">En attente</p><p class="text-2xl font-extrabold text-amber-500">{{stats.enAttente}}</p></div>
+    <div class="dashboard-card border-l-4 border-primary"><p class="text-xs font-bold text-muted uppercase mb-1">Commissions</p><p class="text-xl font-extrabold text-primary">{{stats.totalCommissions | number}} FCFA</p></div>
+  </div>
+  <div class="space-y-3">
+    @for (r of restaurants(); track r.id) {
+      <div class="dashboard-card">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <p class="font-bold text-secondary">{{r.nom}}</p>
+              @if (r.certifie) { <span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">✓ Certifié</span> }
+              @if (!r.actif) { <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold">Suspendu</span> }
+            </div>
+            <p class="text-xs text-muted">{{r.ville}} • Note : {{r.note}}</p>
+            @if (r.commissionDue > 0) { <p class="text-xs text-amber-600 font-semibold mt-1">⚠ Commission due : {{r.commissionDue | number}} FCFA</p> }
+          </div>
+          <div class="flex gap-2 flex-shrink-0">
+            @if (!r.certifie) { <button (click)="certifier(r.id)" class="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold border-none cursor-pointer">Certifier</button> }
+            <button (click)="toggleActif(r.id)" class="px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer" [class]="r.actif ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'">{{r.actif?'Suspendre':'Activer'}}</button>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

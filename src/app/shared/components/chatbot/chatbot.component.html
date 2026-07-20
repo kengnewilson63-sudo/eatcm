@@ -1,0 +1,147 @@
+<!-- Bouton flottant -->
+<button (click)="toggle()"
+        class="fixed bottom-28 md:bottom-8 right-4 z-50 w-14 h-14 rounded-full
+               text-white border-none cursor-pointer transition-all active:scale-90
+               flex items-center justify-center"
+        style="background:linear-gradient(135deg,#FF5A36,#FF7A5C);
+               box-shadow:0 6px 24px rgba(255,90,54,0.45)"
+        [title]="isOpen() ? 'Fermer' : 'Assistant EatsCM'">
+  @if (!isOpen()) {
+    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  } @else {
+    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M18 6 6 18M6 6l12 12"/>
+    </svg>
+  }
+</button>
+
+<!-- Panel chat -->
+@if (isOpen()) {
+  <div class="fixed bottom-48 md:bottom-28 right-4 z-50 w-80 md:w-96 bg-white
+              rounded-3xl overflow-hidden flex flex-col"
+       style="height:500px;box-shadow:0 20px 60px rgba(0,0,0,0.18);
+              animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)">
+
+    <!-- Header -->
+    <div class="flex items-center gap-3 px-4 py-3.5 text-white flex-shrink-0"
+         style="background:linear-gradient(135deg,#FF5A36,#FF7A5C)">
+      <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <p class="font-bold text-sm">Assistant EatsCM</p>
+        <div class="flex items-center gap-1.5 mt-0.5">
+          <span class="w-2 h-2 rounded-full bg-green-300"></span>
+          <span class="text-white/80 text-xs">En ligne</span>
+        </div>
+      </div>
+      <!-- Bouton réinitialiser -->
+      <button (click)="reinitialiser()"
+              class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center
+                     border-none cursor-pointer hover:bg-white/30 transition-colors"
+              title="Nouvelle conversation">
+        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div id="chat-messages"
+         class="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-hide">
+
+      @for (msg of messages(); track $index) {
+        <div class="flex" [class]="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+
+          @if (msg.role === 'assistant') {
+            <div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center
+                        flex-shrink-0 mr-2 mt-auto">
+              <span class="text-xs">🍽️</span>
+            </div>
+          }
+
+          <div class="flex flex-col max-w-[80%]"
+               [class]="msg.role === 'user' ? 'items-end' : 'items-start'">
+            <div class="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed"
+                 [class]="msg.role === 'user'
+                   ? 'bg-primary text-white rounded-br-sm'
+                   : 'bg-gray-100 text-secondary rounded-bl-sm'">
+              {{ msg.content }}
+            </div>
+            <span class="text-[10px] text-muted mt-1 px-1">
+              {{ formatHeure(msg.timestamp) }}
+            </span>
+          </div>
+        </div>
+      }
+
+      <!-- Typing indicator -->
+      @if (loading()) {
+        <div class="flex justify-start" style="animation:fadeIn 0.2s ease-out">
+          <div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mr-2">
+            <span class="text-xs">🍽️</span>
+          </div>
+          <div class="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3">
+            <div class="flex gap-1 items-center">
+              <span class="w-2 h-2 rounded-full bg-gray-400 typing-dot"></span>
+              <span class="w-2 h-2 rounded-full bg-gray-400 typing-dot" style="animation-delay:0.15s"></span>
+              <span class="w-2 h-2 rounded-full bg-gray-400 typing-dot" style="animation-delay:0.3s"></span>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Erreur -->
+      @if (erreur()) {
+        <div class="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-xl border border-red-100"
+             style="animation:fadeIn 0.2s ease-out">
+          <svg class="w-4 h-4 text-red-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+          </svg>
+          <p class="text-xs text-red-600 font-medium">{{ erreur() }}</p>
+        </div>
+      }
+    </div>
+
+    <!-- Suggestions rapides -->
+    <div class="px-3 py-2 flex gap-2 overflow-x-auto scrollbar-hide flex-shrink-0 border-t border-gray-50">
+      @for (s of ['Comment commander ?','Frais livraison ?','MoMo ?','Annuler ?','Livreur ?']; track s) {
+        <button (click)="input.set(s); send()"
+                [disabled]="loading()"
+                class="flex-shrink-0 px-3 py-1.5 rounded-full bg-primary/10 text-primary
+                       text-xs font-semibold border-none cursor-pointer hover:bg-primary/20
+                       transition-colors whitespace-nowrap disabled:opacity-50">
+          {{ s }}
+        </button>
+      }
+    </div>
+
+    <!-- Input -->
+    <div class="px-3 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0">
+      <input type="text"
+             placeholder="Pose ta question..."
+             [value]="input()"
+             (input)="onInput($event)"
+             (keydown)="onKeydown($event)"
+             [disabled]="loading()"
+             class="flex-1 bg-gray-50 border border-transparent rounded-full px-4 py-2.5
+                    text-sm outline-none transition-all focus:bg-white focus:border-primary
+                    font-[inherit] disabled:opacity-60"/>
+      <button (click)="send()"
+              [disabled]="!input().trim() || loading()"
+              class="w-10 h-10 rounded-full flex items-center justify-center border-none
+                     cursor-pointer transition-all active:scale-90 disabled:opacity-40
+                     flex-shrink-0 text-white"
+              style="background:#FF5A36">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+}

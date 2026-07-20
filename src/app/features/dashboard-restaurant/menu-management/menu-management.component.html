@@ -1,0 +1,349 @@
+<div class="page-enter space-y-5">
+
+  <!-- ══ HEADER ══ -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-xl font-extrabold text-secondary">Gestion du menu</h2>
+      <p class="text-sm text-muted mt-0.5">{{ plats().length }} plat{{ plats().length > 1 ? 's' : '' }} au total</p>
+    </div>
+    <button
+      (click)="ouvrirAjout()"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-full text-white font-bold text-sm border-none cursor-pointer transition-all active:scale-95"
+      style="background:#FF5A36; box-shadow:0 4px 16px rgba(255,90,54,0.3)">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      Ajouter un plat
+    </button>
+  </div>
+
+  <!-- ══ SEARCH + FILTRES ══ -->
+  <div class="flex flex-col sm:flex-row gap-3">
+    <div class="relative flex-1">
+      <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none"
+           viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input
+        type="text"
+        placeholder="Rechercher un plat..."
+        [value]="searchQuery()"
+        (input)="onSearchChange($event)"
+        class="input-field pl-10 w-full"
+      />
+    </div>
+    <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      @for (cat of categoriesDisponibles(); track cat) {
+        <button
+          (click)="filtreCategorie.set(cat)"
+          class="flex-shrink-0 px-3 py-2 rounded-full text-xs font-bold border-2 transition-all cursor-pointer"
+          [class]="filtreCategorie() === cat
+            ? 'border-primary bg-primary text-white'
+            : 'border-gray-200 bg-white text-gray-500'">
+          {{ cat }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ══ GRILLE PLATS ══ -->
+  @if (platsFiltres().length === 0) {
+    <div class="dashboard-card text-center py-16">
+      <p class="text-4xl mb-3">🍽️</p>
+      <p class="font-bold text-secondary mb-1">Aucun plat trouvé</p>
+      <p class="text-sm text-muted mb-5">Commencez par ajouter votre premier plat au menu</p>
+      <button (click)="ouvrirAjout()"
+              class="px-5 py-2.5 rounded-full text-white font-bold text-sm border-none cursor-pointer"
+              style="background:#FF5A36">
+        Ajouter un plat
+      </button>
+    </div>
+  }
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    @for (plat of platsFiltres(); track plat.id) {
+      <div class="bg-white rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-card-lg"
+           style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
+
+        <!-- Image + video indicator -->
+        <div class="relative h-40 overflow-hidden">
+          <img [src]="plat.imageUrl" [alt]="plat.nom"
+               class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"/>
+
+          <!-- Badge vidéo -->
+          @if (plat.videoUrl) {
+            <div class="absolute top-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur">
+              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <span class="text-white text-[10px] font-bold">Vidéo</span>
+            </div>
+          }
+
+          <!-- Badge populaire -->
+          @if (plat.populaire) {
+            <div class="absolute top-2 right-2 px-2 py-1 rounded-full bg-primary/90 backdrop-blur">
+              <span class="text-white text-[10px] font-bold">❤ Populaire</span>
+            </div>
+          }
+
+          <!-- Toggle disponibilité -->
+          <div class="absolute bottom-2 right-2">
+            <button
+              (click)="toggleDisponibilite(plat)"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold border-none cursor-pointer transition-all"
+              [class]="plat.disponible
+                ? 'bg-success text-white shadow-sm'
+                : 'bg-gray-700 text-white'">
+              <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+              {{ plat.disponible ? 'Disponible' : 'Épuisé' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Infos -->
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-2 mb-1">
+            <h3 class="font-bold text-secondary text-sm leading-tight">{{ plat.nom }}</h3>
+            <span class="font-extrabold text-primary text-sm flex-shrink-0">{{ plat.prix | number }} FCFA</span>
+          </div>
+          <p class="text-xs text-muted mb-1 line-clamp-2">{{ plat.description }}</p>
+          <div class="flex items-center gap-3 text-xs text-muted mb-4">
+            <span class="flex items-center gap-1">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              {{ plat.tempsPreparation }} min
+            </span>
+            <span class="badge badge-muted">{{ plat.categorie }}</span>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-2">
+            <button
+              (click)="ouvrirEdition(plat)"
+              class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-gray-50 text-secondary hover:bg-gray-100 border-none cursor-pointer transition-all">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Modifier
+            </button>
+            <button
+              (click)="supprimerPlat(plat.id)"
+              class="w-9 h-9 rounded-xl flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-100 border-none cursor-pointer transition-all">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    }
+  </div>
+
+</div>
+
+<!-- ══ MODAL AJOUT / MODIFICATION ══ -->
+@if (modalOuvert()) {
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+       (click)="fermerModal()"
+       style="animation:fadeIn 0.2s ease-out">
+
+    <div class="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl max-h-[92vh] overflow-y-auto"
+         (click)="$event.stopPropagation()"
+         style="animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)">
+
+      <!-- Handle mobile -->
+      <div class="flex justify-center pt-3 pb-1 md:hidden">
+        <div class="w-10 h-1 rounded-full bg-gray-200"></div>
+      </div>
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h3 class="font-extrabold text-secondary">
+          {{ modeEdition() ? 'Modifier le plat' : 'Ajouter un plat' }}
+        </h3>
+        <button (click)="fermerModal()"
+                class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer">
+          <svg class="w-4 h-4 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-5">
+
+        <!-- Photo du plat -->
+        <div>
+          <p class="text-xs font-bold text-secondary uppercase tracking-wider mb-2">
+            Photo du plat *
+          </p>
+          <label class="block cursor-pointer">
+            <input type="file" accept="image/*" class="hidden" (change)="onImageChange($event)"/>
+            @if (!imagePreview()) {
+              <div class="border-2 border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center gap-2 hover:border-primary transition-colors">
+                <svg class="w-8 h-8 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <p class="text-sm font-semibold text-muted">Ajouter une photo</p>
+                <p class="text-xs text-muted">JPG, PNG — max 10MB</p>
+              </div>
+            } @else {
+              <div class="relative rounded-2xl overflow-hidden h-48">
+                <img [src]="imagePreview()!" alt="Preview" class="w-full h-full object-cover"/>
+                <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                  <p class="text-white text-sm font-semibold">Changer la photo</p>
+                </div>
+              </div>
+            }
+          </label>
+        </div>
+
+        <!-- Vidéo TikTok (optionnel) -->
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <p class="text-xs font-bold text-secondary uppercase tracking-wider">Vidéo du plat</p>
+            <span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">Optionnel</span>
+            <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">Apparaît dans Découvrir</span>
+          </div>
+          <p class="text-xs text-muted mb-3">
+            Les plats avec une vidéo ont 3× plus de commandes 
+          </p>
+          <label class="block cursor-pointer">
+            <input type="file" accept="video/*" class="hidden" (change)="onVideoChange($event)"/>
+            @if (!videoPreview()) {
+              <div class="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex items-center gap-4 hover:border-primary transition-colors">
+                <div class="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-6 h-6 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polygon points="23 7 16 12 23 17 23 7"/>
+                    <rect x="1" y="5" width="15" height="14" rx="2"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-secondary">Ajouter une vidéo courte</p>
+                  <p class="text-xs text-muted mt-0.5">15-60 secondes recommandées • MP4, MOV</p>
+                </div>
+              </div>
+            } @else {
+              <div class="relative rounded-2xl overflow-hidden">
+                <video [src]="videoPreview()!" class="w-full h-48 object-cover" controls muted></video>
+                <div class="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-success text-white text-xs font-bold">
+                  ✓ Vidéo ajoutée
+                </div>
+              </div>
+            }
+          </label>
+        </div>
+
+        <!-- Nom -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">Nom du plat *</label>
+          <input type="text" placeholder="Ex: Ndolé au poisson fumé"
+                 [value]="form().nom"
+                 (input)="updateForm('nom', $any($event.target).value)"
+                 class="input-field"/>
+        </div>
+
+        <!-- Description -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">Description</label>
+          <textarea placeholder="Décrivez votre plat..."
+                    [value]="form().description"
+                    (input)="updateForm('description', $any($event.target).value)"
+                    rows="3"
+                    class="input-field resize-none">
+          </textarea>
+        </div>
+
+        <!-- Prix + Temps -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">Prix (FCFA) *</label>
+            <input type="number" placeholder="3500"
+                   [value]="form().prix ?? ''"
+                   (input)="updateForm('prix', +$any($event.target).value)"
+                   class="input-field"/>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">Temps (min)</label>
+            <input type="number" placeholder="20"
+                   [value]="form().tempsPreparation ?? ''"
+                   (input)="updateForm('tempsPreparation', +$any($event.target).value)"
+                   class="input-field"/>
+          </div>
+        </div>
+
+        <!-- Catégorie -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">Catégorie *</label>
+          <select [value]="form().categorie"
+                  (change)="updateForm('categorie', $any($event.target).value)"
+                  class="input-field appearance-none cursor-pointer">
+            @for (cat of categories; track cat) {
+              <option [value]="cat">{{ cat }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Options -->
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <div class="relative">
+              <input type="checkbox" class="sr-only"
+                     [checked]="form().disponible"
+                     (change)="updateForm('disponible', $any($event.target).checked)"/>
+              <div class="w-10 h-6 rounded-full transition-colors"
+                   [class]="form().disponible ? 'bg-success' : 'bg-gray-200'">
+              </div>
+              <div class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                   [class]="form().disponible ? 'translate-x-4' : ''">
+              </div>
+            </div>
+            <span class="text-sm font-semibold text-secondary">Disponible</span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <div class="relative">
+              <input type="checkbox" class="sr-only"
+                     [checked]="form().populaire"
+                     (change)="updateForm('populaire', $any($event.target).checked)"/>
+              <div class="w-10 h-6 rounded-full transition-colors"
+                   [class]="form().populaire ? 'bg-primary' : 'bg-gray-200'">
+              </div>
+              <div class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                   [class]="form().populaire ? 'translate-x-4' : ''">
+              </div>
+            </div>
+            <span class="text-sm font-semibold text-secondary">❤ Populaire</span>
+          </label>
+        </div>
+
+        <!-- Bouton sauvegarder -->
+        <button
+          (click)="sauvegarder()"
+          [disabled]="loading()"
+          class="w-full py-4 rounded-2xl text-white font-bold border-none cursor-pointer transition-all active:scale-98 disabled:opacity-60"
+          style="background:#FF5A36; box-shadow:0 4px 16px rgba(255,90,54,0.35)">
+          @if (loading()) {
+            <span class="flex items-center justify-center gap-2">
+              <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              Sauvegarde...
+            </span>
+          } @else {
+            {{ modeEdition() ? 'Sauvegarder les modifications' : 'Ajouter au menu' }}
+          }
+        </button>
+
+      </div>
+    </div>
+  </div>
+}

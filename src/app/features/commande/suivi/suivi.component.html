@@ -1,0 +1,171 @@
+<div class="min-h-screen bg-gray-50 page-enter">
+  <div class="sticky top-16 z-30 bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
+    <a routerLink="/home" class="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center no-underline active:scale-90"><svg class="w-4 h-4 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></a>
+    <div>
+      <h1 class="text-lg font-extrabold text-secondary">Suivi commande</h1>
+      <!-- AVANT: #{{commandeId()}} affiche string vide si null -->
+      <!-- APRÈS: affiche le numéro ou rien -->
+      <p class="text-xs text-muted">#{{ commandeId() ?? '—' }}</p>
+    </div>
+  </div>
+  
+  <div class="max-w-lg mx-auto px-4 py-6 space-y-6">
+    @if (isLivree()) {
+      <div class="bg-white rounded-3xl p-8 text-center shadow-card" style="animation:slideUp 0.4s ease-out">
+        <div class="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4"><svg class="w-10 h-10 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <h2 class="text-2xl font-extrabold text-secondary mb-2">Livré ! 🎉</h2>
+        <p class="text-muted text-sm mb-6">Ta commande a été livrée avec succès. Bon appétit !</p>
+        <a routerLink="/home" class="inline-block px-6 py-3 rounded-full text-white font-bold text-sm no-underline" style="background:#FF5A36">Commander à nouveau</a>
+      </div>
+    }
+    
+    <div class="bg-white rounded-2xl p-6 shadow-card">
+      <h3 class="font-bold text-secondary mb-6">Progression de ta commande</h3>
+      
+      <!-- Carte tracking livreur -->
+      @if (!isLivree()) {
+        <div class="dashboard-card p-0 overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+            <p class="font-bold text-secondary text-sm">Position de ton livreur en temps réel</p>
+          </div>
+          <!-- AVANT: [commandeId]="commandeId() | number" (string|null → number échoue) -->
+          <!-- APRÈS: [commandeId]="commandeId()!" (number | null, on force avec ! car on sait qu'il est défini) -->
+          <!-- OU mieux: @if (commandeId()) pour ne pas afficher la carte si pas d'ID -->
+          @if (commandeId()) {
+            <app-tracking-map
+              [commandeId]="commandeId()!"
+              [restaurantLat]="4.0483"
+              [restaurantLng]="9.7043"
+              restaurantNom="Chez Maman Bibiane"
+              [clientLat]="4.0600"
+              [clientLng]="9.7200" />
+          }
+        </div>
+      }
+      
+      <div class="space-y-0">
+        @for (etape of etapes(); track etape.statut; let last = $last) {
+          <div class="flex gap-4">
+            <div class="flex flex-col items-center">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500" [class]="etape.done ? 'bg-success' : etape.active ? 'bg-primary' : 'bg-gray-100'">
+                @if (etape.done) { <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> }
+                @else if (etape.active) { <div class="w-3 h-3 rounded-full bg-white animate-pulse"></div> }
+                @else { <div class="w-3 h-3 rounded-full bg-gray-300"></div> }
+              </div>
+              @if (!last) { <div class="w-0.5 h-8 mt-1 transition-all duration-500" [class]="etape.done ? 'bg-success' : 'bg-gray-100'"></div> }
+            </div>
+            <div class="flex-1 pb-6">
+              <p class="font-semibold text-sm" [class]="etape.done || etape.active ? 'text-secondary' : 'text-muted'">{{ etape.label }}</p>
+              @if (etape.active) { <p class="text-xs text-primary font-medium mt-0.5">{{ etape.description }}</p> }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+    <!-- Bouton annuler — visible seulement si encore annulable -->
+<!-- Bouton annuler — visible si pas encore en préparation -->
+@if (peutAnnuler()) {
+  <div class="bg-white rounded-2xl p-4 shadow-card">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-bold text-secondary text-sm">Annuler la commande</p>
+        <p class="text-xs text-muted mt-0.5">Gratuit avant la préparation</p>
+      </div>
+    </div>
+    <button (click)="ouvrirAnnulation()"
+            class="w-full py-3 rounded-xl font-bold text-sm text-red-500
+                   border-2 border-red-100 bg-red-50 cursor-pointer
+                   hover:bg-red-100 transition-colors active:scale-98">
+      Annuler ma commande
+    </button>
+  </div>
+}
+
+<!-- Message si annulation impossible -->
+@if (!peutAnnuler() && !isLivree() && statutActuel() !== 'ANNULEE') {
+  <div class="flex items-start gap-3 px-4 py-3 bg-gray-50 rounded-2xl border border-gray-100">
+    <svg class="w-4 h-4 text-muted flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+    </svg>
+    <p class="text-xs text-muted font-medium leading-relaxed">
+      Annulation impossible — ta commande est déjà en préparation.
+      Contacte le restaurant directement si nécessaire.
+    </p>
+  </div>
+}
+<!-- Statut annulée -->
+@if (statutActuel() === 'ANNULEE') {
+  <div class="bg-white rounded-2xl p-8 text-center shadow-card">
+    <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+    </div>
+    <h3 class="text-xl font-extrabold text-secondary mb-2">Commande annulée</h3>
+    <p class="text-sm text-muted mb-6">
+      Référence : <span class="font-mono font-bold">#ANN-{{ commandeId() }}</span>
+    </p>
+    <a routerLink="/home"
+       class="inline-block px-6 py-3 rounded-full text-white font-bold text-sm no-underline"
+       style="background:#FF5A36">
+      Retour à l'accueil
+    </a>
+  </div>
+}
+
+<!-- Modal annulation -->
+@if (modalAnnulation()) {
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+       (click)="modalAnnulation.set(false)" style="animation:fadeIn 0.2s ease-out">
+    <div class="w-full md:max-w-md" (click)="$event.stopPropagation()"
+         style="animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)">
+      <app-annulation-commande
+[commandeId]="getCommandeId()"
+        [statut]="statutActuel()"
+        [modePaiement]="modePaiement()"
+        [montantTotal]="montantTotal()"
+        (fermer)="modalAnnulation.set(false)"
+        (annulee)="onCommandeAnnulee($event)"/>
+    </div>
+  </div>
+}
+<!-- Modal notation — s'ouvre automatiquement après livraison -->
+@if (modalNotation()) {
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center
+              justify-center p-0 md:p-4"
+       style="animation:fadeIn 0.2s ease-out">
+    <div class="w-full md:max-w-md max-h-[95vh] overflow-y-auto
+                rounded-t-3xl md:rounded-3xl"
+         style="animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)">
+      <app-notation
+        [commandeId]="commandeIdNum"
+        restaurantNom="Chez Maman Bibiane"
+        restaurantLogo="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80"
+        livreurNom="Eric Tchoupo"
+        (avisEnvoye_)="onAvisEnvoye($event)"
+        (passer)="modalNotation.set(false)"
+        (termine)="modalNotation.set(false)"/>
+    </div>
+  </div>
+}
+    
+    <div class="bg-white rounded-2xl p-5 shadow-card">
+      <div class="flex items-center gap-3">
+        <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80" class="w-12 h-12 rounded-xl object-cover flex-shrink-0"/>
+        <div class="flex-1"><p class="font-bold text-secondary text-sm">Chez Maman Bibiane</p><p class="text-xs text-muted">Cuisine camerounaise</p></div>
+        <a href="tel:+237655123456" class="w-10 h-10 rounded-full bg-success flex items-center justify-center no-underline"><svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.5a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.69h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 10.4a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17.73z"/></svg></a>
+      </div>
+    </div>
+  </div>
+</div>

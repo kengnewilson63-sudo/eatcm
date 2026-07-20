@@ -1,0 +1,21 @@
+.tracking-wrapper {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+#tracking-map {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.15); }
+}
+
+.livreur-marker {
+  animation: pulse 1.5s ease-in-out infinite;
+}

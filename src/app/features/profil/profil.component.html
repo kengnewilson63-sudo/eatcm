@@ -1,0 +1,328 @@
+<div class="min-h-screen bg-gray-50 page-enter">
+
+  <!-- Header profil -->
+  <div class="bg-white border-b border-gray-100 px-4 pt-4 pb-5">
+    <div class="flex items-center gap-4 mb-4">
+      <div class="relative flex-shrink-0" style="width:72px;height:72px">
+        <div class="rounded-full bg-primary/10 flex items-center justify-center text-primary font-extrabold text-2xl overflow-hidden border-2 border-primary/20" style="width:72px;height:72px">
+          <img *ngIf="profilePic()" [src]="profilePic()" alt="avatar" class="w-full h-full object-cover"/>
+          <span *ngIf="!profilePic()">{{ getInitials() }}</span>
+        </div>
+        <button (click)="$any(fileInput).click()" title="Changer la photo"
+                class="absolute -bottom-0 -right-0 translate-x-1/4 translate-y-1/4 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border-none">
+          📷
+        </button>
+        <input #fileInput type="file" accept="image/*" class="hidden" (change)="onFileSelected($event)" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-extrabold text-secondary text-xl leading-tight truncate">{{ user()?.prenom }} {{ user()?.nom }}</p>
+        <p class="text-sm text-muted truncate mt-0.5">{{ user()?.email }}</p>
+        <p class="text-xs text-muted mt-0.5">{{ user()?.telephone }}</p>
+        <span [class]="getRoleBadgeClass()" class="mt-2 inline-flex">{{ getRoleLabel() }}</span>
+      </div>
+      <button (click)="ouvrirEdition()"
+              class="flex-shrink-0 px-3 py-2 rounded-xl border-2 border-primary text-primary text-xs font-bold bg-transparent cursor-pointer hover:bg-primary/5 transition-colors">
+         Modifier
+      </button>
+    </div>
+
+    <!-- Stats rapides -->
+    <div class="grid grid-cols-3 gap-3 pt-4 border-t border-gray-100">
+      <div class="text-center">
+        <p class="text-xl font-extrabold text-secondary">{{ totalCommandes }}</p>
+    <a routerLink="/dashboard/client" ...>
+  Mon dashboard
+</a>
+      </div>
+      <div class="text-center border-x border-gray-100">
+        <p class="text-xl font-extrabold text-primary">{{ totalDepense | number }}<span class="text-xs ml-0.5">F</span></p>
+        <p class="text-xs text-muted mt-0.5">Total dépensé</p>
+      </div>
+      <div class="text-center">
+        <p class="text-xl font-extrabold text-secondary">
+          {{ noteMoyenneClient > 0 ? noteMoyenneClient.toFixed(1) : '—' }}
+          @if (noteMoyenneClient > 0) { <span class="text-amber-400 text-base">⭐</span> }
+        </p>
+        <p class="text-xs text-muted mt-0.5">Note moy.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message succès -->
+  @if (editSuccess()) {
+    <div class="mx-4 mt-3 px-4 py-3 bg-green-50 rounded-xl border border-green-100 flex items-center gap-2" style="animation:slideDown 0.3s ease-out">
+      <svg class="w-4 h-4 text-success flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <p class="text-sm text-green-700 font-medium">Profil mis à jour avec succès !</p>
+    </div>
+  }
+
+  <!-- Onglets -->
+  <div class="flex bg-white border-b border-gray-100 sticky top-16 z-30">
+    @for (o of [['profil','👤 Profil'],['commandes',' Commandes'],['adresses',' Adresses']]; track o[0]) {
+      <button (click)="onglet.set($any(o[0]))"
+              class="flex-1 py-3.5 text-xs font-bold border-b-2 transition-all cursor-pointer bg-transparent border-none"
+              [class]="onglet()===o[0] ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-secondary'">
+        {{ o[1] }}
+      </button>
+    }
+  </div>
+
+  <div class="max-w-lg mx-auto px-4 py-5 pb-28 space-y-4">
+
+    <!-- ══ ONGLET PROFIL ══ -->
+    @if (onglet() === 'profil') {
+
+      @if (!editMode()) {
+        <div class="bg-white rounded-2xl overflow-hidden shadow-card">
+          @for (item of [
+            {label:'Prénom',        value: user()?.prenom ?? '—'},
+            {label:'Nom',           value: user()?.nom ?? '—'},
+            {label:'Email',         value: user()?.email ?? '—'},
+            {label:'Téléphone',     value: user()?.telephone ?? '—'},
+            {label:'Membre depuis', value: user()?.dateCreation ? formatDate(user()!.dateCreation) : '—'},
+          ]; track item.label; let last = $last) {
+            <div class="flex items-center justify-between px-4 py-3.5"
+                 [class.border-b]="!last" [class.border-gray-50]="!last">
+              <span class="text-xs font-bold text-muted uppercase tracking-wider">{{ item.label }}</span>
+              <span class="text-sm font-semibold text-secondary text-right max-w-[60%] truncate">{{ item.value }}</span>
+            </div>
+          }
+        </div>
+      }
+
+      @if (editMode()) {
+        <div class="bg-white rounded-2xl p-5 shadow-card space-y-4" style="animation:slideDown 0.3s ease-out">
+          <h3 class="font-bold text-secondary">Modifier mon profil</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-secondary uppercase tracking-wider">Prénom *</label>
+              <input type="text" [value]="editPrenom()" (input)="onField('editPrenom',$event)" class="input-field"/>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-secondary uppercase tracking-wider">Nom *</label>
+              <input type="text" [value]="editNom()" (input)="onField('editNom',$event)" class="input-field"/>
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">Téléphone</label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">+237</span>
+              <input type="tel" placeholder="6XX XXX XXX" [value]="editTel()" (input)="onField('editTel',$event)" class="input-field pl-14"/>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <button (click)="editMode.set(false)"
+                    class="flex-1 py-3 rounded-xl text-secondary font-bold text-sm border-2 border-gray-200 bg-white cursor-pointer">
+              Annuler
+            </button>
+            <button (click)="sauvegarderProfil()" [disabled]="editLoading()"
+                    class="flex-1 py-3 rounded-xl text-white font-bold text-sm border-none cursor-pointer disabled:opacity-60 active:scale-95"
+                    style="background:#FF5A36">
+              @if (editLoading()) { Sauvegarde... } @else { Sauvegarder }
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Actions rapides -->
+      <div class="bg-white rounded-2xl overflow-hidden shadow-card">
+        <a routerLink="/favoris" class="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 no-underline border-b border-gray-50 transition-colors">
+          <div class="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0"><span class="text-lg">❤️</span></div>
+          <span class="flex-1 text-sm font-semibold text-secondary">Mes favoris</span>
+          <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+        </a>
+        <a routerLink="/home" class="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 no-underline border-b border-gray-50 transition-colors">
+          <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0"><span class="text-lg">🍽️</span></div>
+          <span class="flex-1 text-sm font-semibold text-secondary">Explorer les restaurants</span>
+          <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+        </a>
+        <a routerLink="/home" class="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 no-underline transition-colors">
+          <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0"><span class="text-lg">🎧</span></div>
+          <span class="flex-1 text-sm font-semibold text-secondary">Aide & Support</span>
+          <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+        </a>
+      </div>
+
+      <!-- Déconnexion -->
+      <button (click)="logout()"
+              class="w-full flex items-center gap-3 px-4 py-4 bg-white rounded-2xl shadow-card hover:bg-red-50 border-none cursor-pointer text-left font-[inherit] transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </div>
+        <span class="text-sm font-semibold text-red-500">Se déconnecter</span>
+      </button>
+    }
+
+    <!-- ══ ONGLET COMMANDES ══ -->
+    @if (onglet() === 'commandes') {
+      @if (commandes().length === 0) {
+        <div class="text-center py-16">
+          <p class="text-5xl mb-4">📦</p>
+          <p class="font-bold text-secondary mb-2">Aucune commande</p>
+          <p class="text-sm text-muted mb-6">Tes commandes passées apparaîtront ici</p>
+          <a routerLink="/home" class="px-6 py-3 rounded-full text-white font-bold text-sm no-underline" style="background:#FF5A36">
+            Commander maintenant
+          </a>
+        </div>
+      }
+      <div class="space-y-3">
+        @for (cmd of commandes(); track cmd.id) {
+          <div class="bg-white rounded-2xl overflow-hidden shadow-card">
+            <div class="flex items-center gap-3 p-4 border-b border-gray-50">
+              <img [src]="cmd.restaurantLogo" class="w-12 h-12 rounded-xl object-cover flex-shrink-0"/>
+              <div class="flex-1 min-w-0">
+                <p class="font-bold text-secondary text-sm truncate">{{ cmd.restaurantNom }}</p>
+                <p class="text-xs text-muted mt-0.5">{{ formatDate(cmd.date) }}</p>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0"
+                    [class]="cmd.statut === 'LIVREE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                {{ cmd.statut === 'LIVREE' ? '✓ Livrée' : '✕ Annulée' }}
+              </span>
+            </div>
+            <div class="px-4 py-3">
+              <div class="space-y-1 mb-3">
+                @for (plat of cmd.plats; track plat) {
+                  <p class="text-xs text-muted">• {{ plat }}</p>
+                }
+              </div>
+              <div class="flex items-center justify-between">
+                <p class="font-extrabold text-secondary text-base">{{ cmd.montantTotal | number }} FCFA</p>
+                @if (cmd.note) {
+                  <div class="flex items-center gap-0.5">
+                    @for (i of [1,2,3,4,5]; track i) {
+                      <svg class="w-4 h-4" [class]="i <= cmd.note! ? 'text-amber-400' : 'text-gray-200'"
+                           viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    }
+                  </div>
+                }
+              </div>
+              @if (cmd.statut === 'LIVREE') {
+                <div class="flex gap-2 mt-3 pt-3 border-t border-gray-50">
+                  <a routerLink="/home"
+                     class="flex-1 py-2.5 rounded-xl bg-primary/10 text-primary text-xs font-bold text-center no-underline">
+                    🔄 Commander à nouveau
+                  </a>
+                  <button class="flex-1 py-2.5 rounded-xl bg-gray-50 text-secondary text-xs font-bold border-none cursor-pointer">
+                    Signaler un problème
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <div class="flex items-start gap-2 px-4 py-3 bg-blue-50 rounded-xl border border-blue-100">
+        <svg class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
+        <p class="text-xs text-blue-700 font-medium">Données de démo — l'historique réel vient de l'API backend.</p>
+      </div>
+    }
+
+    <!-- ══ ONGLET ADRESSES ══ -->
+    @if (onglet() === 'adresses') {
+      <button (click)="modalAdresse.set(true)"
+              class="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed border-primary/30 text-primary font-bold text-sm cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Ajouter une adresse
+      </button>
+      <div class="space-y-3">
+        @for (adresse of adresses(); track adresse.id) {
+          <div class="bg-white rounded-2xl p-4 shadow-card">
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                     [class]="adresse.label==='Maison'?'bg-blue-50':adresse.label==='Bureau'?'bg-amber-50':'bg-gray-50'">
+                  <span class="text-lg">{{ adresse.label==='Maison'?'🏠':adresse.label==='Bureau'?'🏢':'📍' }}</span>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <p class="font-bold text-secondary text-sm">{{ adresse.label }}</p>
+                    @if (adresse.principale) {
+                      <span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">Principale</span>
+                    }
+                  </div>
+                  <p class="text-xs text-muted">{{ adresse.quartier }}, {{ adresse.ville }}</p>
+                </div>
+              </div>
+              <div class="flex gap-1.5 flex-shrink-0">
+                @if (!adresse.principale) {
+                  <button (click)="setPrincipale(adresse.id)"
+                          class="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-bold border-none cursor-pointer whitespace-nowrap">
+                    Principale
+                  </button>
+                }
+                <button (click)="supprimerAdresse(adresse.id)"
+                        class="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center border-none cursor-pointer">
+                  <svg class="w-3.5 h-3.5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-secondary font-medium leading-relaxed pl-11">📍 {{ adresse.pointDeRepere }}</p>
+          </div>
+        }
+        @if (adresses().length === 0) {
+          <div class="text-center py-12">
+            <p class="text-4xl mb-3">📍</p>
+            <p class="font-bold text-secondary mb-1">Aucune adresse</p>
+            <p class="text-sm text-muted">Ajoute ta première adresse de livraison</p>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<!-- ══ MODAL AJOUT ADRESSE ══ -->
+@if (modalAdresse()) {
+  <div class="fixed inset-0 bg-black/50 z-[70] flex items-end md:items-center justify-center p-4"
+       (click)="modalAdresse.set(false)" style="animation:fadeIn 0.2s ease-out">
+    <div class="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl overflow-y-auto max-h-[calc(100vh-110px)] md:max-h-none mb-[110px] md:mb-0"
+         (click)="$event.stopPropagation()" style="animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)">
+      <div class="flex justify-center pt-3 pb-1 md:hidden"><div class="w-10 h-1 rounded-full bg-gray-200"></div></div>
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h3 class="font-extrabold text-secondary">Nouvelle adresse</h3>
+        <button (click)="modalAdresse.set(false)"
+                class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 pb-[140px] md:pb-5">
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">Label *</label>
+          <input type="text" placeholder="Ex: Maison, Bureau, Chez maman..."
+                 [value]="nouvelleAdresse().label" (input)="onField('label',$event)" class="input-field"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">Ville *</label>
+            <select [value]="nouvelleAdresse().ville" (change)="onField('ville',$event)"
+                    class="input-field appearance-none cursor-pointer">
+              @for (v of villes; track v) { <option [value]="v">{{ v }}</option> }
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">Quartier *</label>
+            <select [value]="nouvelleAdresse().quartier" (change)="onField('quartier',$event)"
+                    class="input-field appearance-none cursor-pointer">
+              <option value="">Choisir...</option>
+              @for (q of quartiers[nouvelleAdresse().ville]; track q) { <option [value]="q">{{ q }}</option> }
+            </select>
+          </div>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">Point de repère *</label>
+          <textarea placeholder="Ex: Maison bleue portail rouge, derrière le marché..."
+                    [value]="nouvelleAdresse().pointDeRepere" (input)="onField('pointDeRepere',$event)"
+                    rows="3" class="input-field resize-none"></textarea>
+          <p class="text-[11px] text-muted">Sois précis pour aider le livreur </p>
+        </div>
+        <button (click)="ajouterAdresse()"
+                class="w-full py-4 my-4 rounded-2xl text-white font-bold border-none cursor-pointer active:scale-95"
+                style="background:#FF5A36;box-shadow:0 4px 16px rgba(255,90,54,0.35)">
+          Enregistrer cette adresse
+        </button>
+      </div>
+    </div>
+  </div>
+}

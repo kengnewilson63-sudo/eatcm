@@ -1,0 +1,19 @@
+<div class="page-enter space-y-5">
+  <h2 class="text-xl font-extrabold text-secondary">Finances & Commissions</h2>
+  <div class="grid grid-cols-2 gap-4">
+    <div class="dashboard-card border-l-4 border-primary"><p class="text-xs font-bold text-muted uppercase mb-1">Total généré</p><p class="text-xl font-extrabold text-primary">{{stats().totalCommissions | number}} FCFA</p></div>
+    <div class="dashboard-card border-l-4 border-success"><p class="text-xs font-bold text-muted uppercase mb-1">Percues</p><p class="text-xl font-extrabold text-success">{{stats().commissionsPercues | number}} FCFA</p></div>
+    <div class="dashboard-card border-l-4 border-amber-400 col-span-2"><p class="text-xs font-bold text-muted uppercase mb-1">Commissions dues ({{stats().restaurantsDebiteurs}} restos)</p><p class="text-2xl font-extrabold text-amber-500">{{stats().commissionsDues | number}} FCFA</p></div>
+  </div>
+  <div class="dashboard-card">
+    <h3 class="font-bold text-secondary mb-4">Restaurants débiteurs</h3>
+    <div class="space-y-3">
+      @for (r of restaurants(); track r.nom) {
+        <div class="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
+          <div><p class="font-semibold text-secondary text-sm">{{r.nom}}</p><p class="text-xs text-muted">CA: {{r.chiffreAffaires | number}} FCFA • Taux: {{r.tauxCommission}}%</p></div>
+          <div class="text-right"><p class="font-extrabold text-amber-600">{{r.commissionDue | number}} FCFA</p><p class="text-xs text-muted">À payer</p></div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

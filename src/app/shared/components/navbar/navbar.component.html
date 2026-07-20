@@ -1,0 +1,119 @@
+<header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-black/5 h-16">
+  <div class="max-w-7xl mx-auto px-4 h-full flex items-center gap-3">
+
+    <!-- Logo -->
+    <a routerLink="/home" (click)="closeMenu()" class="flex items-center gap-2 flex-shrink-0 no-underline">
+      <div class="w-8 h-8 flex-shrink-0">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="16" fill="#FF5A36"/>
+          <path d="M8 12h16M8 16h10M8 20h13" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="hidden sm:block text-lg font-extrabold text-secondary tracking-tight">EatsCM</span>
+    </a>
+
+    <!-- Search desktop -->
+    <div class="hidden md:flex flex-1 max-w-md relative items-center">
+      <svg class="absolute left-3.5 w-4 h-4 text-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" placeholder="Rechercher un plat ou un restaurant..." [value]="searchQuery()" (input)="onSearch($event)"
+             class="w-full bg-gray-50 border border-transparent rounded-full py-2.5 pl-10 pr-4 text-sm font-medium outline-none transition-all placeholder:text-muted focus:bg-white focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,90,54,0.12)] font-[inherit]"/>
+    </div>
+
+    <!-- Actions droite -->
+    <div class="flex items-center gap-1.5 ml-auto">
+
+      <!-- Localisation -->
+      <button class="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl border-none bg-transparent cursor-pointer text-secondary hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        <div class="flex flex-col text-left">
+          <span class="text-[10px] font-semibold text-muted uppercase tracking-wider leading-none">Livrer à</span>
+          <span class="text-[13px] font-bold text-secondary leading-tight">Douala</span>
+        </div>
+        <svg class="w-3.5 h-3.5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+
+      <!-- Search mobile -->
+      <button (click)="toggleSearch()" class="md:hidden w-10 h-10 rounded-full border-none flex items-center justify-center cursor-pointer transition-all active:scale-90"
+              [class]="searchOpen() ? 'bg-primary text-white' : 'bg-transparent text-secondary hover:bg-gray-50'">
+        @if (!searchOpen()) { <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> }
+        @else { <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg> }
+      </button>
+<!-- Notifications -->
+@if (isLoggedIn()) {
+  <app-notifications-panel/>
+}
+      <!-- Panier (CLIENT seulement) -->
+      @if (!isLoggedIn() || role() === 'CLIENT') {
+        <a routerLink="/panier" class="relative w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:bg-gray-50 transition-colors active:scale-90 no-underline">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          @if (totalItems() > 0) {
+            <span class="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 bg-primary text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white leading-none">
+              {{ totalItems() > 9 ? '9+' : totalItems() }}
+            </span>
+          }
+        </a>
+      }
+
+      <!-- Non connecté -->
+      @if (!isLoggedIn()) {
+        <a routerLink="/auth/login" class="hidden sm:flex items-center px-4 py-2 rounded-full text-sm font-semibold text-secondary hover:bg-gray-50 transition-colors no-underline">Connexion</a>
+        <a routerLink="/auth/register" class="flex items-center px-5 py-2 rounded-full text-sm font-bold text-white no-underline active:scale-95 transition-all" style="background:#FF5A36;box-shadow:0 4px 16px rgba(255,90,54,0.3)">S'inscrire</a>
+      }
+
+      <!-- Connecté -->
+      @if (isLoggedIn()) {
+        <div class="relative">
+          <button (click)="toggleMenu()" class="w-9 h-9 rounded-full border-2 flex items-center justify-center cursor-pointer bg-gray-50 transition-all"
+                  [class]="menuOpen() ? 'border-primary shadow-[0_0_0_3px_rgba(255,90,54,0.15)]' : 'border-transparent hover:border-primary'">
+            @if (user()?.avatar) {
+              <img [src]="user()!.avatar" [alt]="user()!.prenom" class="w-full h-full object-cover rounded-full"/>
+            } @else {
+              <span class="text-xs font-extrabold text-primary">{{ getInitials() }}</span>
+            }
+          </button>
+
+          @if (menuOpen()) {
+            <div class="absolute top-[calc(100%+10px)] right-0 w-60 bg-white rounded-2xl border border-black/5 overflow-hidden z-50"
+                 style="box-shadow:0 12px 40px rgba(0,0,0,0.14);animation:dropdownIn 0.18s cubic-bezier(0.16,1,0.3,1)">
+              <div class="px-4 pt-3.5 pb-3 border-b border-gray-100">
+                <p class="text-sm font-bold text-secondary">{{ user()?.prenom }} {{ user()?.nom }}</p>
+                <p class="text-xs text-muted mt-0.5 truncate">{{ user()?.email }}</p>
+                <!-- CORRECTION #6 — badge rôle visible dans le menu -->
+                <span [class]="getRoleBadgeClass()" class="mt-2 inline-flex">{{ getRoleLabel() }}</span>
+              </div>
+              <a [routerLink]="getDashboardRoute()" (click)="closeMenu()" class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 no-underline">
+                <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                Dashboard
+              </a>
+              <button (click)="$any(navFile).click()" class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 border-none bg-transparent text-left cursor-pointer">
+                <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v8M8 6h8M3 20h18"/></svg>
+                Changer la photo
+              </button>
+              <input #navFile type="file" accept="image/*" class="hidden" (change)="onAvatarSelected($event)" />
+              <a routerLink="/profil" (click)="closeMenu()" class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 no-underline">
+                <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Mon profil
+              </a>
+              <div class="h-px bg-gray-100"></div>
+              <button (click)="logout()" class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 border-none bg-transparent cursor-pointer font-[inherit]">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Déconnexion
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Search mobile -->
+  @if (searchOpen()) {
+    <div class="md:hidden border-t border-black/5 px-4 py-2.5 bg-white/95" style="animation:slideUp 0.2s ease-out">
+      <div class="relative">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" placeholder="Rechercher..." [value]="searchQuery()" (input)="onSearch($event)" autofocus
+               class="w-full bg-gray-50 border border-transparent rounded-full py-2.5 pl-10 pr-4 text-sm font-medium outline-none placeholder:text-muted focus:bg-white focus:border-primary font-[inherit]"/>
+      </div>
+    </div>
+  }
+</header>

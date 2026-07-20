@@ -1,0 +1,213 @@
+<div class="bg-white rounded-3xl overflow-hidden" style="box-shadow:0 8px 32px rgba(0,0,0,0.12)">
+
+  <!-- Header -->
+  <div class="px-5 py-4 flex items-center gap-3 text-white"
+       style="background:linear-gradient(135deg,#FF5A36,#FF7A5C)">
+    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 11l3 3L22 4"/>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+      </svg>
+    </div>
+    <div>
+      <p class="font-bold text-sm">Validation de livraison</p>
+      <p class="text-white/80 text-xs">Commande #{{ commandeId() }}</p>
+    </div>
+  </div>
+
+  <!-- Étapes -->
+  <div class="flex items-center px-5 py-3 bg-gray-50 border-b border-gray-100">
+    @for (s of [['photo','📸 Photo'],['qr','📱 QR Code'],['done','✅ Validé']]; track s[0]; let i = $index) {
+      <div class="flex items-center" [class.flex-1]="i < 2">
+        <div class="flex items-center gap-1.5">
+          <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold transition-all duration-300"
+               [class]="etape() === s[0]
+                 ? 'bg-primary text-white'
+                 : (['photo','qr','done'].indexOf(etape()) > i)
+                   ? 'bg-success text-white'
+                   : 'bg-gray-200 text-gray-500'">
+            {{ (['photo','qr','done'].indexOf(etape()) > i) ? '✓' : (i + 1) }}
+          </div>
+          <span class="text-xs font-semibold hidden sm:block"
+                [class]="etape() === s[0] ? 'text-primary' : 'text-muted'">
+            {{ s[1] }}
+          </span>
+        </div>
+        @if (i < 2) {
+          <div class="flex-1 h-px mx-2 transition-colors duration-300"
+               [class]="(['photo','qr','done'].indexOf(etape()) > i) ? 'bg-success' : 'bg-gray-200'">
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="p-5">
+
+    <!-- ÉTAPE 1 — Photo preuve -->
+    @if (etape() === 'photo') {
+      <div style="animation:fadeIn 0.3s ease-out">
+        <h3 class="font-bold text-secondary mb-1">📸 Photo de l'article livré</h3>
+        <p class="text-sm text-muted mb-4 leading-relaxed">
+          Prends une photo des articles devant la porte du client.
+          Obligatoire pour valider la livraison et recevoir ton paiement.
+        </p>
+        <label class="block cursor-pointer">
+          <input type="file" accept="image/*" capture="environment"
+                 class="hidden" (change)="onPhotoPreuve($event)"/>
+          @if (!photoPreuve()) {
+            <div class="border-2 border-dashed border-primary/30 rounded-2xl p-8
+                        flex flex-col items-center gap-3 bg-primary/5 hover:border-primary transition-colors">
+              <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <svg class="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.5">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </div>
+              <div class="text-center">
+                <p class="font-bold text-secondary">Appuie pour prendre une photo</p>
+                <p class="text-xs text-muted mt-1">Photo de la commande posée devant le client</p>
+              </div>
+            </div>
+          } @else {
+            <div class="relative rounded-2xl overflow-hidden h-56">
+              <img [src]="photoPreuve()!" alt="Preuve livraison" class="w-full h-full object-cover"/>
+              <div class="absolute inset-0 bg-black/20 flex items-center justify-center
+                          opacity-0 hover:opacity-100 transition-opacity">
+                <p class="text-white font-semibold text-sm bg-black/40 px-3 py-1.5 rounded-full">
+                  Changer la photo
+                </p>
+              </div>
+              <div class="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-success text-white text-xs font-bold">
+                ✓ Photo prise
+              </div>
+            </div>
+          }
+        </label>
+      </div>
+    }
+
+    <!-- ÉTAPE 2 — Scanner QR Code -->
+    @if (etape() === 'qr') {
+      <div style="animation:fadeIn 0.3s ease-out">
+        <h3 class="font-bold text-secondary mb-1">📱 Scanner le QR Code du client</h3>
+        <p class="text-sm text-muted mb-5 leading-relaxed">
+          Le client affiche un QR code sur son téléphone. Scanne-le pour confirmer la livraison.
+        </p>
+
+        <!-- Aperçu photo prise -->
+        @if (photoPreuve()) {
+          <div class="flex items-center gap-3 px-3 py-2.5 bg-green-50 rounded-xl border border-green-100 mb-4">
+            <img [src]="photoPreuve()!" class="w-10 h-10 rounded-lg object-cover flex-shrink-0"/>
+            <p class="text-xs text-green-700 font-semibold">✓ Photo de preuve enregistrée</p>
+          </div>
+        }
+
+        <!-- QR Code simulé côté client -->
+        <div class="bg-gray-50 rounded-2xl p-5 mb-5 text-center border border-gray-100">
+          <p class="text-xs font-bold text-muted uppercase tracking-wider mb-3">
+            QR Code affiché chez le client
+          </p>
+          <div class="inline-block p-4 bg-white rounded-2xl shadow-sm border border-gray-200">
+            <svg viewBox="0 0 100 100" class="w-36 h-36">
+              <!-- Coins QR -->
+              <rect x="5"  y="5"  width="28" height="28" fill="none" stroke="#1A1A1F" stroke-width="3"/>
+              <rect x="11" y="11" width="16" height="16" fill="#1A1A1F"/>
+              <rect x="67" y="5"  width="28" height="28" fill="none" stroke="#1A1A1F" stroke-width="3"/>
+              <rect x="73" y="11" width="16" height="16" fill="#1A1A1F"/>
+              <rect x="5"  y="67" width="28" height="28" fill="none" stroke="#1A1A1F" stroke-width="3"/>
+              <rect x="11" y="73" width="16" height="16" fill="#1A1A1F"/>
+              <!-- Data dots -->
+              <rect x="40" y="5"  width="5" height="5" fill="#1A1A1F"/>
+              <rect x="50" y="5"  width="5" height="5" fill="#1A1A1F"/>
+              <rect x="60" y="5"  width="5" height="5" fill="#1A1A1F"/>
+              <rect x="40" y="15" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="55" y="20" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="40" y="40" width="5" height="5" fill="#FF5A36"/>
+              <rect x="50" y="40" width="5" height="5" fill="#FF5A36"/>
+              <rect x="60" y="40" width="5" height="5" fill="#FF5A36"/>
+              <rect x="70" y="40" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="80" y="40" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="90" y="40" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="40" y="50" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="60" y="50" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="80" y="50" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="40" y="60" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="55" y="60" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="70" y="60" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="40" y="75" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="55" y="80" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="70" y="75" width="5" height="5" fill="#1A1A1F"/>
+              <rect x="85" y="80" width="5" height="5" fill="#1A1A1F"/>
+            </svg>
+          </div>
+          <p class="text-[10px] text-muted mt-3 font-mono">{{ qrSimuleCode() }}</p>
+        </div>
+
+        <button (click)="simulerScanQR()" [disabled]="loading()"
+                class="w-full py-4 rounded-2xl text-white font-bold text-sm border-none
+                       cursor-pointer active:scale-95 disabled:opacity-60 transition-all
+                       flex items-center justify-center gap-2"
+                style="background:#1A1A1F">
+          @if (loading()) {
+            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            Scan en cours...
+          } @else {
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+              <path d="M14 14h3v3M17 14v7M14 21h7"/>
+            </svg>
+            Scanner le QR Code
+          }
+        </button>
+        <p class="text-center text-xs text-muted mt-3">
+          En production — utilise une lib comme jsQR ou ZXing pour vrai scan 📷
+        </p>
+      </div>
+    }
+
+    <!-- ÉTAPE 3 — Confirmation finale -->
+    @if (etape() === 'done') {
+      <div style="animation:fadeIn 0.3s ease-out" class="text-center">
+        <div class="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-10 h-10 text-success" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-extrabold text-secondary mb-1">Tout est bon ! </h3>
+        <p class="text-sm text-muted mb-5">
+          Photo prise + QR code scanné. Tu peux maintenant valider.
+        </p>
+
+        <!-- Aperçu photo -->
+        @if (photoPreuve()) {
+          <div class="relative rounded-2xl overflow-hidden h-40 mb-5">
+            <img [src]="photoPreuve()!" class="w-full h-full object-cover"/>
+            <div class="absolute inset-0 bg-success/20 flex items-center justify-center">
+              <span class="px-4 py-2 rounded-full bg-success text-white text-sm font-bold">
+                ✓ Photo preuve enregistrée
+              </span>
+            </div>
+          </div>
+        }
+
+        <button (click)="validerLivraison()"
+                class="w-full py-4 rounded-2xl text-white font-bold text-sm border-none
+                       cursor-pointer active:scale-95 transition-all"
+                style="background:linear-gradient(135deg,#22C55E,#16A34A);
+                       box-shadow:0 8px 24px rgba(34,197,94,0.4)">
+          ✓ Confirmer la livraison — Recevoir mon paiement
+        </button>
+      </div>
+    }
+  </div>
+</div>
