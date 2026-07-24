@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
@@ -6,19 +6,28 @@ import { Role, User } from '../../../core/models';
 
 @Component({
   selector: 'app-register',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink  ],
   templateUrl: './register.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   private auth   = inject(AuthService);
   private router = inject(Router);
 
+  // ========== CONFIG ZONE ==========
+  readonly VILLES_AUTORISEES = ['Douala'];
+
+  // ========== ÉTATS ==========
   etape         = signal<1 | 2>(1);
   role          = signal<Role>('CLIENT');
   loading       = signal(false);
   erreur        = signal('');
   showPass      = signal(false);
+
+  // GPS / Zone
+  villeDetectee  = signal<string | null>(null);
+  villeAutorisee = signal(true);
+  gpsLoading     = signal(false);
 
   // Champs formulaire
   prenom        = signal('');
@@ -38,6 +47,55 @@ export class RegisterComponent {
     { value: 'LIVREUR',    label: 'Livreur',    emoji: '🛵', desc: 'Je veux effectuer des livraisons' },
   ];
 
+  ngOnInit(): void {
+  // TEST : simule une ville hors zone après 2 secondes
+  this.gpsLoading.set(true);
+  
+  setTimeout(() => {
+    this.villeDetectee.set('Yaoundé');
+    this.villeAutorisee.set(false);
+    this.gpsLoading.set(false);
+    console.log('✅ TEST GPS : ville =', this.villeDetectee(), 'autorisée =', this.villeAutorisee());
+  }, 2000);
+}
+  // ========== GPS / ZONE ==========
+  async detecterVille(): Promise<void> {
+    if (!navigator.geolocation) {
+      this.villeAutorisee.set(true);
+      return;
+    }
+
+    this.gpsLoading.set(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`
+          );
+          const data = await res.json();
+          const ville = data.address?.city || data.address?.town || data.address?.state || '';
+          this.villeDetectee.set(ville);
+
+          const autorisee = this.VILLES_AUTORISEES.some(v =>
+            ville.toLowerCase().includes(v.toLowerCase())
+          );
+          this.villeAutorisee.set(autorisee);
+        } catch {
+          this.villeAutorisee.set(true);
+        } finally {
+          this.gpsLoading.set(false);
+        }
+      },
+      () => {
+        this.villeAutorisee.set(true);
+        this.gpsLoading.set(false);
+      },
+      { timeout: 10000, enableHighAccuracy: false }
+    );
+  }
+
+  // ========== UI HELPERS ==========
   badgeClass(r: Role): string {
     if (r === 'CLIENT')     return 'role-badge-client';
     if (r === 'RESTAURANT') return 'role-badge-restaurant';
@@ -71,7 +129,6 @@ export class RegisterComponent {
       numeroMoMo: (val) => this.numeroMoMo.set(val),
     };
     map[field]?.(v);
-    // Reset erreur à chaque saisie
     this.erreur.set('');
   }
 
@@ -88,8 +145,8 @@ export class RegisterComponent {
     reader.readAsDataURL(file);
   }
 
+  // ========== SUBMIT ==========
   onSubmit(): void {
-    // Validation
     if (!this.prenom().trim()) {
       this.erreur.set('Le prénom est obligatoire.'); return;
     }
@@ -113,7 +170,6 @@ export class RegisterComponent {
     this.erreur.set('');
 
     setTimeout(() => {
-      // ✅ FIX PRINCIPAL — utilise les VRAIES données du formulaire
       const user: User = {
         id:           Date.now(),
         prenom:       this.prenom().trim(),
@@ -125,7 +181,6 @@ export class RegisterComponent {
         dateCreation: new Date().toISOString(),
       };
 
-      // Sauvegarde en session avec les vraies données
       this.auth.saveSession(
         `mock_token_${this.role().toLowerCase()}_${Date.now()}`,
         user
@@ -133,7 +188,6 @@ export class RegisterComponent {
 
       this.loading.set(false);
 
-      // Redirige selon le rôle
       const dest: Record<Role, string> = {
         CLIENT:     '/home',
         RESTAURANT: '/dashboard/restaurant',

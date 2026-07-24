@@ -186,52 +186,174 @@
     }
   }
 
-  <!-- ══ EN COURS ══ -->
-  @if (onglet() === 'EN_COURS') {
-    @if (enCours().length === 0) {
-      <div class="dashboard-card text-center py-12">
-        <p class="text-4xl mb-3">🛵</p>
-        <p class="font-bold text-secondary">Aucune course en cours</p>
-      </div>
-    }
-    @for (c of enCours(); track c.id) {
-      <div class="dashboard-card">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-            En cours
-          </span>
-          <span class="text-xs text-muted">#{{ c.id }}</span>
-          <span class="text-xs text-muted ml-auto">{{ c.distanceKm }} km</span>
-        </div>
-
-        <p class="font-bold text-secondary text-sm mb-1">
-          {{ c.restaurantNom }} → {{ c.clientNom }}
-        </p>
-        <p class="text-xs text-muted mb-3">
-          {{ c.restaurantAdresse }} → {{ c.clientAdresse }}
-        </p>
-
-        <div class="flex gap-2">
-          @if (c.statut === 'ACCEPTEE') {
-            <button (click)="demarrerLivraison(c)"
-                    class="flex-1 py-2.5 rounded-xl text-white text-xs font-bold
-                           border-none cursor-pointer active:scale-95"
-                    style="background:#3B82F6">
-               Récupérer chez le restaurant
-            </button>
-          }
-          @if (c.statut === 'EN_COURS') {
-            <button (click)="ouvrirValidation(c)"
-                    class="flex-1 py-2.5 rounded-xl text-white text-xs font-bold
-                           border-none cursor-pointer active:scale-95"
-                    style="background:#22C55E">
-              📸 Valider avec QR + Photo
-            </button>
-          }
-        </div>
-      </div>
-    }
+<!-- ══ EN COURS ══ -->
+@if (onglet() === 'EN_COURS') {
+  @if (enCours().length === 0) {
+    <div class="dashboard-card text-center py-12">
+      <p class="text-4xl mb-3">🛵</p>
+      <p class="font-bold text-secondary">Aucune course en cours</p>
+    </div>
   }
+
+  @for (c of enCours(); track c.id) {
+    <div class="dashboard-card space-y-4">
+
+      <!-- Header -->
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+          En cours
+        </span>
+        <span class="text-xs text-muted">#{{ c.id }}</span>
+        <span class="ml-auto font-extrabold text-primary text-sm">
+          +{{ c.montantLivraison | number }} FCFA
+        </span>
+      </div>
+
+      <!-- Itinéraire Restaurant → Client -->
+      <div class="space-y-2">
+
+        <!-- Restaurant -->
+        <div class="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
+          <div class="w-8 h-8 rounded-full bg-primary flex items-center
+                      justify-center flex-shrink-0 text-sm">
+            🍽️
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-bold text-secondary">{{ c.restaurantNom }}</p>
+            <p class="text-xs text-muted truncate">📍 {{ c.restaurantAdresse }}</p>
+          </div>
+          @if (c.statut === 'ACCEPTEE') {
+            <span class="text-[10px] font-bold text-primary bg-primary/10
+                         px-2 py-1 rounded-full flex-shrink-0 whitespace-nowrap">
+              Aller chercher
+            </span>
+          } @else {
+            <span class="text-[10px] font-bold text-success bg-green-100
+                         px-2 py-1 rounded-full flex-shrink-0 whitespace-nowrap">
+              ✓ Récupéré
+            </span>
+          }
+        </div>
+
+        <!-- Flèche -->
+        <div class="flex justify-center">
+          <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12l7 7 7-7"/>
+          </svg>
+        </div>
+
+        <!-- Client -->
+        <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+          <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center
+                      justify-center flex-shrink-0 text-sm">
+            🏠
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-bold text-secondary">{{ c.clientNom }}</p>
+            <p class="text-xs text-muted truncate">📍 {{ c.clientAdresse }}</p>
+          </div>
+          <span class="text-[10px] font-bold text-blue-600 bg-blue-100
+                       px-2 py-1 rounded-full flex-shrink-0 whitespace-nowrap">
+            Livrer ici
+          </span>
+        </div>
+      </div>
+
+      <!-- Infos livraison -->
+      <div class="grid grid-cols-3 gap-2">
+        <div class="text-center p-2.5 bg-gray-50 rounded-xl">
+          <p class="text-sm font-extrabold text-secondary">{{ c.distanceKm }} km</p>
+          <p class="text-[10px] text-muted mt-0.5">Distance</p>
+        </div>
+        <div class="text-center p-2.5 bg-gray-50 rounded-xl">
+          <p class="text-sm font-extrabold text-secondary">
+            ~{{ (c.distanceKm * 4).toFixed(0) }} min
+          </p>
+          <p class="text-[10px] text-muted mt-0.5">Temps estimé</p>
+        </div>
+        <div class="text-center p-2.5 bg-primary/5 rounded-xl">
+          <p class="text-sm font-extrabold text-primary">
+            {{ c.montantLivraison | number }} F
+          </p>
+          <p class="text-[10px] text-muted mt-0.5">Tes gains</p>
+        </div>
+      </div>
+
+      <!-- Info paiement cash -->
+      @if (c.modePaiement === 'CASH') {
+        <div class="flex items-start gap-2 px-3 py-2.5 bg-amber-50
+                    rounded-xl border border-amber-100">
+          <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+          </svg>
+          <p class="text-xs text-amber-700 font-medium leading-relaxed">
+            💵 Cash — garde <strong>{{ c.montantLivraison | number }} FCFA</strong>
+            (tes frais), remets le reste au restaurant.
+          </p>
+        </div>
+      } @else {
+        <div class="flex items-center gap-2 px-3 py-2.5 bg-green-50
+                    rounded-xl border border-green-100">
+          <svg class="w-4 h-4 text-success flex-shrink-0" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <p class="text-xs text-green-700 font-medium">
+            ✅ {{ c.modePaiement === 'ORANGE_MONEY' ? 'Orange Money' : 'MTN MoMo' }}
+            — déjà payé. Juste livrer !
+          </p>
+        </div>
+      }
+
+      <!-- Boutons action -->
+      <div class="flex gap-2">
+        @if (c.statut === 'ACCEPTEE') {
+          <!-- Appeler restaurant -->
+          <a href="tel:+237655123456"
+             class="flex items-center gap-1.5 px-3 py-3 rounded-xl bg-gray-50
+                    text-secondary text-xs font-bold no-underline
+                    hover:bg-gray-100 transition-colors flex-shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.5a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.69h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 10.4a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17.73z"/>
+            </svg>
+            Resto
+          </a>
+          <button (click)="demarrerLivraison(c)"
+                  class="flex-1 py-3 rounded-xl text-white text-xs font-bold
+                         border-none cursor-pointer active:scale-95 transition-all"
+                  style="background:#3B82F6">
+            🛵 J'ai récupéré la commande
+          </button>
+        }
+
+        @if (c.statut === 'EN_COURS') {
+          <!-- Appeler client -->
+          <a href="tel:+237655000002"
+             class="flex items-center gap-1.5 px-3 py-3 rounded-xl bg-gray-50
+                    text-secondary text-xs font-bold no-underline
+                    hover:bg-gray-100 transition-colors flex-shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.5a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.69h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 10.4a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17.73z"/>
+            </svg>
+            Client
+          </a>
+          <button (click)="ouvrirValidation(c)"
+                  class="flex-1 py-3 rounded-xl text-white text-xs font-bold
+                         border-none cursor-pointer active:scale-95 transition-all"
+                  style="background:#22C55E">
+            📸 Scanner QR + Photo
+          </button>
+        }
+      </div>
+    </div>
+  }
+}
 
   <!-- ══ LIVRÉES ══ -->
   @if (onglet() === 'LIVREE') {

@@ -36,6 +36,53 @@
             </button>
           }
         </div>
+
+        <!-- ========== BLOC GPS / ZONE DE COUVERTURE ========== -->
+
+        <!-- Chargement GPS en cours -->
+        @if (gpsLoading()) {
+          <div class="flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 animate-pulse mt-4">
+            <svg class="w-4 h-4 text-gray-400 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-dashoffset="20"/>
+            </svg>
+            <p class="text-xs text-gray-500">Détection de ta position...</p>
+          </div>
+        }
+
+        <!-- Hors zone (pas à Douala) -->
+        @if (!villeAutorisee() && villeDetectee() && !gpsLoading()) {
+          <div class="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-200 mt-4">
+            <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div>
+              <p class="font-bold text-amber-800 text-sm mb-1">
+                EatsCM n'est pas encore disponible à {{ villeDetectee() }}
+              </p>
+              <p class="text-xs text-amber-700 leading-relaxed">
+                Nous sommes actuellement à <strong>Douala</strong> uniquement.
+                Tu peux quand même créer un compte et être notifié quand on arrive dans ta ville ! 🚀
+              </p>
+            </div>
+          </div>
+        }
+
+        <!-- Dans la zone (Douala) -->
+        @if (villeAutorisee() && villeDetectee() && !gpsLoading()) {
+          <div class="flex items-center gap-2 px-4 py-3 bg-green-50 rounded-xl border border-green-100 mt-4">
+            <svg class="w-4 h-4 text-green-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <p class="text-xs text-green-700 font-semibold">
+              ✅ Super ! EatsCM est disponible à {{ villeDetectee() }}
+            </p>
+          </div>
+        }
+        <!-- ========== FIN BLOC GPS ========== -->
+
         <button (click)="nextEtape()" class="w-full mt-6 py-3.5 rounded-full text-white font-bold text-sm border-none cursor-pointer active:scale-95 transition-all" style="background:#FF5A36;box-shadow:0 4px 16px rgba(255,90,54,0.35)">
           Continuer →
         </button>

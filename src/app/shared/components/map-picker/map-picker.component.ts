@@ -1,7 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, output, OnInit, OnDestroy } from '@angular/core';
+import {
+  Component, ChangeDetectionStrategy, inject,
+  output, OnInit, OnDestroy, signal
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MapsService } from '../../../core/services/maps.service';
-import { PositionGPS } from '../../../core/models';
+import { MapsService, PositionGPS } from '../../../core/services/maps.service';
 
 @Component({
   selector: 'app-map-picker',
@@ -12,21 +14,22 @@ import { PositionGPS } from '../../../core/models';
 export class MapPickerComponent implements OnInit, OnDestroy {
   private maps = inject(MapsService);
 
-  readonly position   = this.maps.positionSelectionnee;
-  readonly chargement = this.maps.chargement;
-  readonly erreur     = this.maps.erreur;
+  readonly position    = this.maps.positionSelectionnee;
+  readonly chargement  = this.maps.chargement;
+  readonly erreur      = this.maps.erreur;
+  readonly carteChargee = this.maps.carteChargee;
+  readonly gpsAutorise  = this.maps.gpsAutorise;
+
+  afficherInstructions = signal(false);
 
   positionChoisie = output<PositionGPS>();
 
-  ngOnInit(): void { setTimeout(() => this.maps.initMap('eatscm-map'), 150); }
+  ngOnInit(): void {
+    setTimeout(() => this.maps.initMap('eatscm-map'), 200);
+  }
 
   async utiliserMaPosition(): Promise<void> {
-    try {
-      await this.maps.maPosition();
-    } catch {
-      // Le service applique déjà un fallback local si la géolocalisation échoue.
-    }
-
+    await this.maps.maPosition();
     const pos = this.position();
     if (pos) this.positionChoisie.emit(pos);
   }
@@ -36,5 +39,15 @@ export class MapPickerComponent implements OnInit, OnDestroy {
     if (pos) this.positionChoisie.emit(pos);
   }
 
-  ngOnDestroy(): void { this.maps.detruireMap(); }
+  getMessageErreur(): string {
+    return this.maps.getMessageErreur();
+  }
+
+  getInstructions(): string {
+    return this.maps.getInstructionsGPS();
+  }
+
+  ngOnDestroy(): void {
+    this.maps.detruireMap();
+  }
 }
