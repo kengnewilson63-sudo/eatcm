@@ -6,6 +6,7 @@ import {
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { CommandeService } from '../../core/services/commande.service';
+import { Subscription } from 'rxjs';
 
 export interface Commentaire {
   id: number;
@@ -33,6 +34,7 @@ export interface VideoPlat {
 
 @Component({
   selector: 'app-discover',
+  standalone: true,
   imports: [CommonModule, RouterLink, DecimalPipe],
   templateUrl: './discover.component.html',
   styleUrl: './discover.component.css',
@@ -54,6 +56,7 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
   videoEnPause   = signal<number | null>(null);
 
   private observer!: IntersectionObserver;
+  private videoSub!: Subscription;
 
   ngOnInit(): void {
     this.videos.set([
@@ -62,10 +65,10 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
         platNom: 'Ndolé au poisson fumé',
         platDescription: 'Notre fameux ndolé avec du poisson fumé, accompagné de plantain mûr et de miondo fait maison.',
         prix: 3500, tempsPreparation: 20,
-        restaurantId: 1, // ✅ Chez Maman Bibiane
+        restaurantId: 1,
         restaurantNom: 'Chez Maman Bibiane',
         restaurantLogo: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80&q=80',
-        videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
         likes: 245, partages: 38, liked: false,
         commentaires: [
           { id: 1, auteur: 'Paul K.',  avatar: 'https://i.pravatar.cc/40?img=1', texte: 'Trop bon ce ndolé 😍🔥', date: 'il y a 2h' },
@@ -77,10 +80,10 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
         platNom: 'Brochettes de bœuf grillées',
         platDescription: 'Brochettes marinées 24h aux épices locales, grillées au feu de bois.',
         prix: 2500, tempsPreparation: 15,
-        restaurantId: 2, // ✅ Le Grill Akwa
+        restaurantId: 2,
         restaurantNom: 'Le Grill Akwa',
         restaurantLogo: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=80&q=80',
-        videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
         likes: 512, partages: 92, liked: true,
         commentaires: [
           { id: 1, auteur: 'Sophie M.', avatar: 'https://i.pravatar.cc/40?img=4', texte: 'Ces brochettes 🔥🔥🔥', date: 'il y a 1h' },
@@ -91,10 +94,10 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
         platNom: 'Poulet DG',
         platDescription: 'Poulet entier mijoté avec plantains dorés, poivrons et épices du chef.',
         prix: 5000, tempsPreparation: 35,
-        restaurantId: 1, // ✅ Chez Maman Bibiane
+        restaurantId: 1,
         restaurantNom: 'Chez Maman Bibiane',
         restaurantLogo: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80&q=80',
-        videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
         likes: 198, partages: 24, liked: false,
         commentaires: [
           { id: 1, auteur: 'Alice N.', avatar: 'https://i.pravatar.cc/40?img=6', texte: "Le poulet DG c'est la vie 😭❤️", date: 'il y a 4h' },
@@ -105,10 +108,10 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
         platNom: 'Pizza 4 fromages',
         platDescription: 'Pâte fine maison, mozzarella, gorgonzola, parmesan et emmental fondus.',
         prix: 6000, tempsPreparation: 25,
-        restaurantId: 3, // ✅ Pizza Roma
+        restaurantId: 3,
         restaurantNom: 'Pizza Roma Douala',
         restaurantLogo: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=80&q=80',
-        videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
         likes: 321, partages: 57, liked: false,
         commentaires: [],
       },
@@ -116,21 +119,36 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    setTimeout(() => this.setupObserver(), 500);
+    setTimeout(() => {
+      this.setupObserver();
+      this.videoSub = this.videoRefs.changes.subscribe(() => {
+        this.setupObserver();
+      });
+    }, 300);
   }
 
   private setupObserver(): void {
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+
     this.observer = new IntersectionObserver(
       (entries) => {
         this.zone.run(() => {
           entries.forEach(entry => {
             const video = entry.target as HTMLVideoElement;
-            if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-              // Démarre toujours muet (règle navigateur)
-              video.muted = true;
+            const isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.6;
+
+            video.dataset['visible'] = isVisible ? 'true' : 'false';
+
+            if (isVisible) {
+              video.muted = this.muted();
               video.play().catch(() => {});
             } else {
               video.pause();
+              if (this.videoEnPause() === Number(video.dataset['id'])) {
+                this.videoEnPause.set(null);
+              }
             }
           });
         });
@@ -143,38 +161,40 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // FIX SON — DOM direct après interaction utilisateur
   toggleMute(): void {
     const newMuted = !this.muted();
     this.muted.set(newMuted);
-    // Force toutes les vidéos via DOM direct
-    document.querySelectorAll<HTMLVideoElement>('video.feed-video')
-      .forEach(v => {
+
+    // Applique uniquement sur la vidéo visible (active)
+    this.videoRefs.forEach(ref => {
+      const v = ref.nativeElement;
+      if (v.dataset['visible'] === 'true') {
         v.muted = newMuted;
-        // Si on active le son, relance la vidéo pour appliquer
         if (!newMuted && v.paused) {
           v.play().catch(() => {
-            // Si bloqué → reste muet
             v.muted = true;
             this.muted.set(true);
           });
         }
-      });
+      } else {
+        v.muted = true;
+      }
+    });
   }
 
   togglePlay(videoId: number): void {
-    document.querySelectorAll<HTMLVideoElement>('video.feed-video')
-      .forEach(v => {
-        if (v.dataset['id'] === String(videoId)) {
-          if (v.paused) {
-            v.play().catch(() => {});
-            this.videoEnPause.set(null);
-          } else {
-            v.pause();
-            this.videoEnPause.set(videoId);
-          }
+    this.videoRefs.forEach(ref => {
+      const v = ref.nativeElement;
+      if (v.dataset['id'] === String(videoId)) {
+        if (v.paused) {
+          v.play().catch(() => {});
+          this.videoEnPause.set(null);
+        } else {
+          v.pause();
+          this.videoEnPause.set(videoId);
         }
-      });
+      }
+    });
   }
 
   toggleLike(v: VideoPlat): void {
@@ -186,11 +206,11 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ouvrirCommentaires(v: VideoPlat): void {
-    // FIX — copie les commentaires de la bonne vidéo
     const video = this.videos().find(x => x.id === v.id);
     this.activeComments.set(video ? [...video.commentaires] : []);
     this.activeVideoId.set(v.id);
     this.commentOpen.set(true);
+
     setTimeout(() => {
       const el = document.getElementById('comments-list');
       if (el) el.scrollTop = el.scrollHeight;
@@ -200,26 +220,34 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
   fermerCommentaires(): void {
     this.commentOpen.set(false);
     this.nouveauComment.set('');
+    this.activeVideoId.set(null);
   }
 
   ajouterCommentaire(): void {
     const texte = this.nouveauComment().trim();
-    if (!texte) return;
+    const videoId = this.activeVideoId();
+
+    if (!texte || !videoId) return;
+
     const newC: Commentaire = {
-      id:     Date.now(),
+      id: Date.now(),
       auteur: 'Moi',
       avatar: 'https://i.pravatar.cc/40?img=10',
       texte,
-      date:   "à l'instant",
+      date: "à l'instant",
     };
-    // FIX — met à jour dans videos() ET dans activeComments
+
+    // Met à jour la source videos()
     this.videos.update(list => list.map(v =>
-      v.id === this.activeVideoId()
+      v.id === videoId
         ? { ...v, commentaires: [...v.commentaires, newC] }
         : v
     ));
+
+    // Met à jour le panel en direct
     this.activeComments.update(c => [...c, newC]);
     this.nouveauComment.set('');
+
     setTimeout(() => {
       const el = document.getElementById('comments-list');
       if (el) el.scrollTop = el.scrollHeight;
@@ -229,8 +257,9 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
   async partager(v: VideoPlat): Promise<void> {
     const url = `${window.location.origin}/restaurant/${v.restaurantId}`;
     if (navigator.share) {
-      try { await navigator.share({ title: v.platNom, text: `${v.platNom} — EatsCM 🍽️`, url }); }
-      catch {}
+      try {
+        await navigator.share({ title: v.platNom, text: `${v.platNom} — EatsCM 🍽️`, url });
+      } catch { /* user cancelled */ }
     } else {
       await navigator.clipboard.writeText(url).catch(() => {});
       alert('Lien copié ! 🔗');
@@ -240,11 +269,19 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
 
   commander(v: VideoPlat): void {
     this.cmdSvc.ajouterAuPanier({
-      id: v.id, restaurantId: v.restaurantId, nom: v.platNom,
-      description: v.platDescription, prix: v.prix,
-      categorie: 'Plats', imageUrl: '', tempsPreparation: v.tempsPreparation,
-      disponible: true, populaire: true, likes: v.likes,
+      id: v.id,
+      restaurantId: v.restaurantId,
+      nom: v.platNom,
+      description: v.platDescription,
+      prix: v.prix,
+      categorie: 'Plats',
+      imageUrl: '',
+      tempsPreparation: v.tempsPreparation,
+      disponible: true,
+      populaire: true,
+      likes: v.likes,
     }, v.restaurantNom);
+
     this.addedToCart.set(v.id);
     setTimeout(() => this.addedToCart.set(null), 2500);
   }
@@ -259,5 +296,6 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.observer) this.observer.disconnect();
+    if (this.videoSub) this.videoSub.unsubscribe();
   }
 }

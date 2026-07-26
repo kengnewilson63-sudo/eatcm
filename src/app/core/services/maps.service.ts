@@ -1,94 +1,115 @@
 import { Injectable, signal } from '@angular/core';
 
 export interface PositionGPS {
-  latitude:      number;
-  longitude:     number;
-  adresse:       string;
-  quartier:      string;
-  ville:         string;
-  indications?:  string;
+  latitude:     number;
+  longitude:    number;
+  adresse:      string;
+  quartier:     string;
+  ville:        string;
+  indications?: string;
 }
 
-declare const google: any;
+declare const L: any; // Leaflet global
 
 @Injectable({ providedIn: 'root' })
 export class MapsService {
 
-  private map:      any = null;
-  private marker:   any = null;
-  private geocoder: any = null;
+  private map:    any = null;
+  private marker: any = null;
 
   positionSelectionnee = signal<PositionGPS | null>(null);
   chargement           = signal(false);
   erreur               = signal('');
   carteChargee         = signal(false);
-  gpsAutorise          = signal<boolean | null>(null); // null=inconnu, true=ok, false=refusé
+  gpsAutorise          = signal<boolean | null>(null);
 
-  // ══ INIT CARTE ════════════════════════════════════════════
+  // ══ INIT CARTE LEAFLET ════════════════════════════════════
   async initMap(elementId: string, lat = 4.0483, lng = 9.7043): Promise<void> {
     this.erreur.set('');
 
-    // Vérifie si Google Maps est chargé
-    if (!this.googleMapsDisponible()) {
-      this.erreur.set('google_maps_indisponible');
+    // Vérifie que Leaflet est chargé
+    if (typeof L === 'undefined') {
+      this.erreur.set('carte_indisponible');
       return;
     }
 
+    // Attend que le DOM soit prêt
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     const el = document.getElementById(elementId);
-    if (!el) { this.erreur.set('element_introuvable'); return; }
+    if (!el || !document.body.contains(el)) {
+      this.erreur.set('element_introuvable');
+      return;
+    }
+
+    // Détruit la carte existante si elle existe
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+      this.marker = null;
+    }
 
     try {
-      this.map = new google.maps.Map(el, {
-        center:             { lat, lng },
-        zoom:               15,
-        mapTypeControl:     false,
-        streetViewControl:  false,
-        fullscreenControl:  false,
-        zoomControl:        true,
-        styles: [
-          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-        ],
+      // Crée la carte Leaflet avec OpenStreetMap
+      this.map = L.map(elementId, {
+        center:           [lat, lng],
+        zoom:             15,
+        zoomControl:      true,
+        attributionControl: false,
       });
 
-      this.geocoder = new google.maps.Geocoder();
+      // Tuiles OpenStreetMap — gratuites
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom:     19,
+        attribution: '© OpenStreetMap',
+      }).addTo(this.map);
 
-      // Marker draggable
-      this.marker = new google.maps.Marker({
-        position:  { lat, lng },
-        map:       this.map,
-        draggable: true,
-        animation: google.maps.Animation.DROP,
-        title:     'Votre position',
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
-              <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 24 16 24s16-12 16-24C32 7.16 24.84 0 16 0z" fill="#FF5A36"/>
-              <circle cx="16" cy="16" r="8" fill="white"/>
-              <circle cx="16" cy="16" r="4" fill="#FF5A36"/>
+      // Marker custom orange EatsCM
+      const iconeCustom = L.divIcon({
+        html: `
+          <div style="
+            width:36px;
+            height:44px;
+            filter:drop-shadow(0 4px 8px rgba(255,90,54,0.5));
+          ">
+            <svg viewBox="0 0 36 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0z"
+                    fill="#FF5A36"/>
+              <circle cx="18" cy="18" r="9" fill="white"/>
+              <circle cx="18" cy="18" r="5" fill="#FF5A36"/>
             </svg>
-          `),
-          scaledSize: new google.maps.Size(32, 40),
-          anchor:     new google.maps.Point(16, 40),
-        },
+          </div>
+        `,
+        className:  '',
+        iconSize:   [36, 44],
+        iconAnchor: [18, 44],
       });
 
-      // Drag marker
-      this.marker.addListener('dragend', () => {
-        const pos = this.marker.getPosition();
-        this.geocoderAdresse(pos.lat(), pos.lng());
+      // Crée le marker draggable
+      this.marker = L.marker([lat, lng], {
+        icon:      iconeCustom,
+        draggable: true,
+      }).addTo(this.map);
+
+      // Drag marker → update adresse
+      this.marker.on('dragend', async () => {
+        const pos = this.marker.getLatLng();
+        await this.geocoderNominatim(pos.lat, pos.lng);
       });
 
-      // Click sur la carte
-      this.map.addListener('click', (e: any) => {
-        this.marker.setPosition(e.latLng);
-        this.geocoderAdresse(e.latLng.lat(), e.latLng.lng());
+      // Click sur carte → déplace marker
+      this.map.on('click', async (e: any) => {
+        this.marker.setLatLng(e.latlng);
+        await this.geocoderNominatim(e.latlng.lat, e.latlng.lng);
       });
 
       this.carteChargee.set(true);
-      await this.geocoderAdresse(lat, lng);
+
+      // Géocode la position initiale
+      await this.geocoderNominatim(lat, lng);
 
     } catch (err) {
-      console.error('Maps init error:', err);
+      console.error('Leaflet init error:', err);
       this.erreur.set('erreur_init_carte');
     }
   }
@@ -98,7 +119,6 @@ export class MapsService {
     this.chargement.set(true);
     this.erreur.set('');
 
-    // Vérifie si géolocalisation disponible
     if (!navigator.geolocation) {
       this.erreur.set('gps_non_supporte');
       this.chargement.set(false);
@@ -106,7 +126,7 @@ export class MapsService {
       return;
     }
 
-    // Vérifie la permission GPS avant de demander
+    // Vérifie permission
     if (navigator.permissions) {
       try {
         const perm = await navigator.permissions.query({ name: 'geolocation' });
@@ -126,34 +146,28 @@ export class MapsService {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
 
-          // Centre la carte sur la position
+          // Centre la carte Leaflet
           if (this.map) {
-            this.map.setCenter({ lat, lng });
-            this.map.setZoom(17);
-            this.marker?.setPosition({ lat, lng });
+            this.map.setView([lat, lng], 17);
           }
 
-          await this.geocoderAdresse(lat, lng);
+          // Déplace le marker
+          if (this.marker) {
+            this.marker.setLatLng([lat, lng]);
+          }
+
+          await this.geocoderNominatim(lat, lng);
           this.chargement.set(false);
           resolve();
         },
         (err) => {
           this.gpsAutorise.set(false);
           this.chargement.set(false);
-
-          // Messages clairs selon le code d'erreur
           switch (err.code) {
-            case 1: // PERMISSION_DENIED
-              this.erreur.set('gps_refuse');
-              break;
-            case 2: // POSITION_UNAVAILABLE
-              this.erreur.set('gps_indisponible');
-              break;
-            case 3: // TIMEOUT
-              this.erreur.set('gps_timeout');
-              break;
-            default:
-              this.erreur.set('gps_erreur');
+            case 1: this.erreur.set('gps_refuse');       break;
+            case 2: this.erreur.set('gps_indisponible'); break;
+            case 3: this.erreur.set('gps_timeout');      break;
+            default: this.erreur.set('gps_erreur');
           }
           resolve();
         },
@@ -166,59 +180,33 @@ export class MapsService {
     });
   }
 
-  // ══ GEOCODER — Adresse depuis coordonnées ═════════════════
-  async geocoderAdresse(lat: number, lng: number): Promise<void> {
-    if (!this.geocoder) {
-      // Fallback sans Google Maps — utilise Nominatim (OpenStreetMap gratuit)
-      await this.geocoderNominatim(lat, lng);
-      return;
-    }
-
+  // ══ GÉOCODAGE NOMINATIM — gratuit, pas de clé ════════════
+  async geocoderNominatim(lat: number, lng: number): Promise<void> {
     try {
-      const result = await this.geocoder.geocode({ location: { lat, lng } });
-      if (result.results[0]) {
-        const comps    = result.results[0].address_components;
-        let quartier   = '';
-        let ville      = '';
-
-        for (const c of comps) {
-          if (c.types.includes('sublocality') || c.types.includes('neighborhood')) {
-            quartier = c.long_name;
-          }
-          if (c.types.includes('locality')) {
-            ville = c.long_name;
-          }
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=fr`,
+        {
+          headers: {
+            'User-Agent': 'EatsCM-App/1.0 (livraison@eatscm.cm)',
+          },
         }
-
-        this.positionSelectionnee.set({
-          latitude:  lat,
-          longitude: lng,
-          adresse:   result.results[0].formatted_address,
-          quartier:  quartier || 'Douala',
-          ville:     ville    || 'Douala',
-        });
-      }
-    } catch {
-      await this.geocoderNominatim(lat, lng);
-    }
-  }
-
-  // ══ FALLBACK — Nominatim si pas de Google Maps ════════════
-  private async geocoderNominatim(lat: number, lng: number): Promise<void> {
-    try {
-      const res  = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=fr`
       );
       const data = await res.json();
 
       const quartier = data.address?.suburb
         ?? data.address?.neighbourhood
         ?? data.address?.quarter
+        ?? data.address?.residential
+        ?? data.address?.road
         ?? '';
-      const ville    = data.address?.city
+
+      const ville = data.address?.city
         ?? data.address?.town
+        ?? data.address?.county
         ?? 'Douala';
-      const adresse  = data.display_name ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+      const adresse = data.display_name
+        ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
       this.positionSelectionnee.set({
         latitude:  lat,
@@ -227,57 +215,59 @@ export class MapsService {
         quartier,
         ville,
       });
+
     } catch {
-      // Dernier fallback — position sans adresse
+      // Fallback — juste les coordonnées
       this.positionSelectionnee.set({
         latitude:  lat,
         longitude: lng,
-        adresse:   `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        adresse:   `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
         quartier:  '',
         ville:     'Douala',
       });
     }
   }
 
-  // ══ UTILS ══════════════════════════════════════════════════
-  private googleMapsDisponible(): boolean {
-    return typeof google !== 'undefined' && !!google.maps;
+  // ══ ALIAS pour compatibilité avec le code existant ════════
+  async geocoderAdresse(lat: number, lng: number): Promise<void> {
+    await this.geocoderNominatim(lat, lng);
   }
 
-  detruireMap(): void {
-    this.map    = null;
-    this.marker = null;
-    this.geocoder = null;
-    this.carteChargee.set(false);
-    this.positionSelectionnee.set(null);
-    this.erreur.set('');
-  }
-
-  // Message d'erreur lisible
+  // ══ MESSAGE ERREUR LISIBLE ════════════════════════════════
   getMessageErreur(): string {
-    const e = this.erreur();
     const messages: Record<string, string> = {
-      'gps_refuse':               '🔒 GPS refusé — active la localisation dans les paramètres de ton téléphone',
-      'gps_non_supporte':         '📵 GPS non supporté sur cet appareil',
-      'gps_indisponible':         '📡 Signal GPS indisponible — vérifie ta connexion',
-      'gps_timeout':              '⏱️ GPS trop lent — réessaie ou saisis l\'adresse manuellement',
-      'gps_erreur':               '❌ Erreur GPS — utilise le mode Manuel',
-      'google_maps_indisponible': '🗺️ Carte indisponible — utilise le mode Manuel',
-      'element_introuvable':      '❌ Erreur d\'affichage de la carte',
-      'erreur_init_carte':        '❌ Impossible de charger la carte',
+      'gps_refuse':        '🔒 GPS refusé — active la localisation dans les paramètres',
+      'gps_non_supporte':  '📵 GPS non supporté sur cet appareil',
+      'gps_indisponible':  '📡 Signal GPS faible — essaie dehors ou saisis manuellement',
+      'gps_timeout':       '⏱️ GPS trop lent — réessaie ou saisis l\'adresse manuellement',
+      'gps_erreur':        '❌ Erreur GPS — utilise le mode Manuel',
+      'carte_indisponible':'🗺️ Carte indisponible — utilise le mode Manuel',
+      'element_introuvable':'❌ Erreur d\'affichage',
+      'erreur_init_carte': '❌ Impossible de charger la carte',
     };
-    return messages[e] ?? e;
+    return messages[this.erreur()] ?? this.erreur();
   }
 
-  // Instructions pour activer le GPS selon l'appareil
+  // ══ INSTRUCTIONS GPS selon appareil ══════════════════════
   getInstructionsGPS(): string {
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes('iphone') || ua.includes('ipad')) {
-      return 'Sur iPhone : Réglages → Confidentialité → Service de localisation → Active pour Safari/Chrome';
+      return 'iPhone : Réglages → Confidentialité → Service de localisation → Active pour Safari/Chrome → "Lors de l\'utilisation"';
     } else if (ua.includes('android')) {
-      return 'Sur Android : Paramètres → Applications → Chrome/Navigateur → Autorisations → Localisation → Autoriser';
-    } else {
-      return 'Sur Chrome : Clique sur le 🔒 cadenas dans la barre d\'adresse → Paramètres du site → Localisation → Autoriser';
+      return 'Android : Paramètres → Applications → Chrome → Autorisations → Localisation → Autoriser';
     }
+    return 'Chrome desktop : Clique sur 🔒 dans la barre d\'adresse → Paramètres du site → Localisation → Autoriser';
+  }
+
+  // ══ DÉTRUIRE LA CARTE ═════════════════════════════════════
+  detruireMap(): void {
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+    }
+    this.marker       = null;
+    this.carteChargee.set(false);
+    this.positionSelectionnee.set(null);
+    this.erreur.set('');
   }
 }

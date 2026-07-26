@@ -11,24 +11,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Google Maps — remplace YOUR_API_KEY par ta vraie clé -->
-  <script>
-    window.__googleMapsLoaded = false;
-    window.__googleMapsError  = false;
-
-    function initGoogleMaps() {
-      window.__googleMapsLoaded = true;
-    }
-
-    function googleMapsError() {
-      window.__googleMapsError = true;
-      console.warn('Google Maps failed to load');
-    }
-  </script>
-  <script
-    src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places,geocoder&language=fr&region=CM&callback=initGoogleMaps&onerror=googleMapsError"
-    async defer>
-  </script>
+  <!-- Leaflet CSS — gratuit, pas de clé nécessaire -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
   <app-root></app-root>
