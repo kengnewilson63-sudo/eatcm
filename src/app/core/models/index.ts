@@ -25,14 +25,17 @@ export type StatutRemiseCash = 'REMIS' | 'NON_REMIS';
 // Utilisateur — JWT en mémoire, JAMAIS en localStorage (cahier des charges section 6.1)
 export interface User {
   id: number;
-  nom: string;
   prenom: string;
+  nom: string;
   email: string;
   telephone: string;
+   statut?: string;
   role: Role;
-  avatar?: string;
   actif: boolean;
   dateCreation: string;
+  avatar?: string | null;
+  typeLivreur?: string | null;           // ← AJOUTE
+  restaurantProprietaireId?: number | null; // ← AJOUTE
 }
 
 // Restaurant avec mode de livraison

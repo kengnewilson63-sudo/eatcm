@@ -1,0 +1,151 @@
+<div class="promo-container">
+  <!-- Header -->
+  <div class="promo-header">
+    <div>
+      <h1>🎁 Mes Promotions</h1>
+      <p>{{ mesPromotions().length }} promotion(s) • {{ mesPromotions().filter(p => p.actif).length }} active(s)</p>
+    </div>
+    <button (click)="ouvrirAjout()" class="btn-primary">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Nouvelle promo
+    </button>
+  </div>
+
+  <!-- Liste -->
+  <div class="promo-grid">
+    @for (promo of mesPromotions(); track promo.id) {
+      <div class="promo-card" [class.inactive]="!promo.actif">
+        <div class="promo-image" [style.background-image]="'url(' + (promo.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f7a07d?w=400&q=80') + ')'">
+          <div class="promo-badge" [style.background]="getStatus(promo).color">
+            {{ getStatus(promo).text }}
+          </div>
+          <div class="promo-type">{{ getTypeLabel(promo.type) }}</div>
+        </div>
+
+        <div class="promo-body">
+          <h3>{{ promo.titre }}</h3>
+          <p>{{ promo.description }}</p>
+
+          <div class="promo-code">
+            <span>Code :</span>
+            <strong>{{ promo.codePromo }}</strong>
+          </div>
+
+          <div class="promo-details">
+            <span>📅 {{ promo.dateDebut | date:'dd/MM' }} → {{ promo.dateFin | date:'dd/MM/yyyy' }}</span>
+            @if (promo.valeurRemise) {
+              <span>🔥 -{{ promo.valeurRemise }}%</span>
+            }
+            @if (promo.minimumCommande) {
+              <span>🛒 Min {{ promo.minimumCommande | number }} FCFA</span>
+            }
+          </div>
+
+          <div class="promo-stats">
+            <span>{{ promo.utilisationsCount }} utilisation(s)</span>
+            @if (promo.utilisationsMax) {
+              <span>/ {{ promo.utilisationsMax }} max</span>
+            }
+          </div>
+
+          <div class="promo-actions">
+            <button (click)="toggleActif(promo.id)" class="btn-toggle" [class.off]="!promo.actif">
+              {{ promo.actif ? 'Désactiver' : 'Activer' }}
+            </button>
+            <button (click)="ouvrirEdition(promo)" class="btn-edit">Modifier</button>
+            <button (click)="supprimer(promo.id)" class="btn-delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <p class="text-4xl mb-3">🎫</p>
+        <h3>Aucune promotion</h3>
+        <p>Crée ta première promo pour attirer plus de clients.</p>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Modal -->
+@if (modalOuvert()) {
+  <div class="modal-backdrop" (click)="modalOuvert.set(false)"></div>
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h2>{{ modeEdition() ? 'Modifier' : 'Nouvelle' }} promotion</h2>
+      <button (click)="modalOuvert.set(false)" class="btn-close">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Titre *</label>
+        <input type="text" [value]="titre()" (input)="onField('titre', $event)" placeholder="Ex: -20% de réduction">
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [value]="description()" (input)="onField('description', $event)" rows="2" placeholder="Décris la promo..."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type</label>
+          <select [value]="type()" (change)="onField('type', $event)">
+            @for (t of typesPromo; track t.value) {
+              <option [value]="t.value">{{ t.label }}</option>
+            }
+          </select>
+        </div>
+
+        @if (type() === 'remise') {
+          <div class="form-group">
+            <label>Valeur remise (%)</label>
+            <input type="number" [value]="valeurRemise()" (input)="onNumberField('remise', $event)" placeholder="20">
+          </div>
+        }
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code promo *</label>
+          <input type="text" [value]="codePromo()" (input)="onField('code', $event)" placeholder="MAMAN20">
+        </div>
+        <div class="form-group">
+          <label>Image URL</label>
+          <input type="text" [value]="imageUrl()" (input)="onField('image', $event)" placeholder="https://...">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date début</label>
+          <input type="date" [value]="dateDebut()" (input)="onField('debut', $event)">
+        </div>
+        <div class="form-group">
+          <label>Date fin *</label>
+          <input type="date" [value]="dateFin()" (input)="onField('fin', $event)">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Min. commande (FCFA)</label>
+          <input type="number" [value]="minimumCommande()" (input)="onNumberField('min', $event)" placeholder="3000">
+        </div>
+        <div class="form-group">
+          <label>Utilisations max</label>
+          <input type="number" [value]="utilisationsMax()" (input)="onNumberField('max', $event)" placeholder="Illimité">
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button (click)="modalOuvert.set(false)" class="btn-secondary">Annuler</button>
+      <button (click)="sauvegarder()" class="btn-primary">
+        {{ modeEdition() ? 'Mettre à jour' : 'Créer la promo' }}
+      </button>
+    </div>
+  </div>
+}

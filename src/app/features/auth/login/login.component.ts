@@ -19,21 +19,67 @@ export class LoginComponent {
   loading    = signal(false);
   erreur     = signal('');
   showPass   = signal(false);
-  // Mot de passe oublié
   mdpMsg     = signal('');
 
-  onSubmit(): void {
-    if (!this.email() || !this.motDePasse()) { this.erreur.set('Veuillez remplir tous les champs.'); return; }
-    if (this.motDePasse().length < 6)         { this.erreur.set('Mot de passe minimum 6 caractères.'); return; }
-    this.erreur.set(''); this.loading.set(true);
-    // Mock — remplacer par this.auth.login(...).subscribe() quand backend prêt
-    setTimeout(() => {
-      this.auth.loginMockEmail(this.email());
-      this.loading.set(false);
-      this.router.navigate(['/home']);
-    }, 900);
+  togglePass(): void { this.showPass.update(v => !v); }
+
+  onEmailChange(e: Event): void { 
+    this.email.set((e.target as HTMLInputElement).value); 
+    this.erreur.set(''); 
+    this.mdpMsg.set(''); 
+  }
+  
+  onPassChange(e: Event): void { 
+    this.motDePasse.set((e.target as HTMLInputElement).value); 
+    this.erreur.set(''); 
   }
 
+  onSubmit(): void {
+    const email = this.email().trim();
+    const pass = this.motDePasse();
+
+    if (!email || !pass) {
+      this.erreur.set('Veuillez remplir tous les champs.');
+      return;
+    }
+    if (!email.includes('@') || !email.includes('.')) {
+      this.erreur.set('Entre un email valide.');
+      return;
+    }
+    if (pass.length < 6) {
+      this.erreur.set('Mot de passe minimum 6 caractères.');
+      return;
+    }
+
+    this.erreur.set('');
+    this.loading.set(true);
+
+    // 🔥 APPEL RÉEL AU BACKEND
+    this.auth.login(email, pass).subscribe({
+      next: (res) => {
+        this.loading.set(false);
+        const dest: Record<Role, string> = {
+          CLIENT:     '/home',
+          RESTAURANT: '/dashboard/restaurant',
+          LIVREUR:    '/dashboard/livreur',
+          ADMIN:      '/dashboard/admin',
+        };
+        this.router.navigate([dest[res.user.role]]);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        if (err.status === 401 || err.status === 403) {
+          this.erreur.set('Email ou mot de passe incorrect.');
+        } else if (err.status === 0) {
+          this.erreur.set('Serveur injoignable. Vérifie que le backend tourne sur localhost:8080.');
+        } else {
+          this.erreur.set(err.error?.message || 'Erreur de connexion. Réessaie.');
+        }
+      }
+    });
+  }
+
+  // Garde le mock rapide pour tester les dashboards
   connexionRapide(role: Role): void {
     this.auth.loginMock(role);
     const dest: Record<Role, string> = {
@@ -43,7 +89,6 @@ export class LoginComponent {
     this.router.navigate([dest[role]]);
   }
 
-  // CORRECTION — Mot de passe oublié fonctionnel
   motDePasseOublie(): void {
     if (!this.email()) {
       this.erreur.set("Entre d'abord ton email, puis clique sur 'Mot de passe oublie'.");
@@ -52,8 +97,4 @@ export class LoginComponent {
     this.mdpMsg.set('Un email de reinitialisation sera envoye a ' + this.email() + ' des que le backend sera connecte.');
     setTimeout(() => this.mdpMsg.set(''), 5000);
   }
-
-  togglePass(): void { this.showPass.update(v => !v); }
-  onEmailChange(e: Event): void { this.email.set((e.target as HTMLInputElement).value); this.erreur.set(''); this.mdpMsg.set(''); }
-  onPassChange(e: Event): void  { this.motDePasse.set((e.target as HTMLInputElement).value); this.erreur.set(''); }
 }

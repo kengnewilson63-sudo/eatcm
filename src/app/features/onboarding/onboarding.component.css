@@ -1,0 +1,10 @@
+.onboarding-wrapper {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #1A1A1F;
+}
+
+.top-safe {
+  padding-top: env(safe-area-inset-top);
+}

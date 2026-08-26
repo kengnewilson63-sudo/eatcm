@@ -6,7 +6,7 @@ import { Role, User } from '../../../core/models';
 
 @Component({
   selector: 'app-register',
-  imports: [CommonModule, RouterLink  ],
+  imports: [CommonModule, RouterLink],
   templateUrl: './register.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -48,25 +48,21 @@ export class RegisterComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-  // TEST : simule une ville hors zone après 2 secondes
-  this.gpsLoading.set(true);
-  
-  setTimeout(() => {
-    this.villeDetectee.set('Yaoundé');
-    this.villeAutorisee.set(false);
-    this.gpsLoading.set(false);
-    console.log('✅ TEST GPS : ville =', this.villeDetectee(), 'autorisée =', this.villeAutorisee());
-  }, 2000);
-}
+    this.gpsLoading.set(true);
+    setTimeout(() => {
+      this.villeDetectee.set('Yaoundé');
+      this.villeAutorisee.set(false);
+      this.gpsLoading.set(false);
+    }, 2000);
+  }
+
   // ========== GPS / ZONE ==========
   async detecterVille(): Promise<void> {
     if (!navigator.geolocation) {
       this.villeAutorisee.set(true);
       return;
     }
-
     this.gpsLoading.set(true);
-
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
@@ -76,7 +72,6 @@ export class RegisterComponent implements OnInit {
           const data = await res.json();
           const ville = data.address?.city || data.address?.town || data.address?.state || '';
           this.villeDetectee.set(ville);
-
           const autorisee = this.VILLES_AUTORISEES.some(v =>
             ville.toLowerCase().includes(v.toLowerCase())
           );
@@ -123,13 +118,23 @@ export class RegisterComponent implements OnInit {
       prenom:     (val) => this.prenom.set(val),
       nom:        (val) => this.nom.set(val),
       email:      (val) => this.email.set(val),
-      telephone:  (val) => this.telephone.set(val),
       motDePasse: (val) => this.motDePasse.set(val),
       nomResto:   (val) => this.nomResto.set(val),
-      numeroMoMo: (val) => this.numeroMoMo.set(val),
     };
     map[field]?.(v);
     this.erreur.set('');
+  }
+
+  // 🔥 NOUVEAU : Gère les inputs téléphone (chiffres uniquement, max 9)
+  onPhoneInput(event: Event, field: 'telephone' | 'numeroMoMo' = 'telephone'): void {
+    const input = event.target as HTMLInputElement;
+    const cleaned = input.value.replace(/\D/g, '').slice(0, 9);
+    if (field === 'telephone') {
+      this.telephone.set(cleaned);
+    } else {
+      this.numeroMoMo.set(cleaned);
+    }
+    input.value = cleaned;
   }
 
   onFile(field: string, e: Event): void {
@@ -153,11 +158,14 @@ export class RegisterComponent implements OnInit {
     if (!this.nom().trim()) {
       this.erreur.set('Le nom est obligatoire.'); return;
     }
-    if (!this.email().trim() || !this.email().includes('@')) {
-      this.erreur.set('Entre un email valide.'); return;
+    if (!this.email().trim() || !this.email().includes('@') || !this.email().includes('.')) {
+      this.erreur.set('Entre un email valide (ex: nom@email.com).'); return;
     }
     if (!this.telephone().trim()) {
       this.erreur.set('Le numéro de téléphone est obligatoire.'); return;
+    }
+    if (this.telephone().length !== 9) {
+      this.erreur.set('Le numéro doit faire exactement 9 chiffres.'); return;
     }
     if (this.motDePasse().length < 6) {
       this.erreur.set('Le mot de passe doit faire au moins 6 caractères.'); return;
@@ -169,32 +177,40 @@ export class RegisterComponent implements OnInit {
     this.loading.set(true);
     this.erreur.set('');
 
-    setTimeout(() => {
-      const user: User = {
-        id:           Date.now(),
-        prenom:       this.prenom().trim(),
-        nom:          this.nom().trim(),
-        email:        this.email().trim().toLowerCase(),
-        telephone:    `+237${this.telephone().trim()}`,
-        role:         this.role(),
-        actif:        true,
-        dateCreation: new Date().toISOString(),
-      };
+    const registerData = {
+      prenom:     this.prenom().trim(),
+      nom:        this.nom().trim(),
+      email:      this.email().trim().toLowerCase(),
+      telephone:  `+237${this.telephone().trim()}`,
+      motDePasse: this.motDePasse(),
+      role:       this.role(),
+      ...(this.role() === 'RESTAURANT' && { nomRestaurant: this.nomResto().trim() }),
+      ...(this.numeroMoMo().trim() && { numeroMoMo: this.numeroMoMo().trim() }),
+    };
 
-      this.auth.saveSession(
-        `mock_token_${this.role().toLowerCase()}_${Date.now()}`,
-        user
-      );
-
-      this.loading.set(false);
-
-      const dest: Record<Role, string> = {
-        CLIENT:     '/home',
-        RESTAURANT: '/dashboard/restaurant',
-        LIVREUR:    '/dashboard/livreur',
-        ADMIN:      '/home',
-      };
-      this.router.navigate([dest[this.role()]]);
-    }, 1000);
+    this.auth.register(registerData).subscribe({
+      next: (res) => {
+        this.loading.set(false);
+        const dest: Record<Role, string> = {
+          CLIENT:     '/home',
+          RESTAURANT: '/dashboard/restaurant',
+          LIVREUR:    '/dashboard/livreur',
+          ADMIN:      '/home',
+        };
+        this.router.navigate([dest[this.role()]]);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        if (err.status === 409 || err.error?.message?.includes('déjà')) {
+          this.erreur.set('Cet email ou ce numéro est déjà utilisé.');
+        } else if (err.status === 400) {
+          this.erreur.set('Données invalides. Vérifie tes informations.');
+        } else if (err.status === 0) {
+          this.erreur.set('Impossible de contacter le serveur. Vérifie que le backend est lancé sur localhost:8080.');
+        } else {
+          this.erreur.set(err.error?.message || 'Une erreur est survenue. Réessaie.');
+        }
+      }
+    });
   }
 }

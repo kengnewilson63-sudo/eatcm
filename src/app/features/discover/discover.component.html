@@ -1,9 +1,12 @@
-<div class="discover-wrapper">
-  <div class="feed-container">
-    @for (video of videos(); track video.id; let i = $index) {
-      <div class="feed-item">
+<!-- STRUCTURE FORCÉE EN INLINE (hauteur, scroll snap, background) -->
+<div class="discover-wrapper" style="height: 100dvh; width: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; background: #000; position: relative; scrollbar-width: none;">
+  <div class="feed-container" style="display: flex; flex-direction: column; width: 100%;">
 
-        <!-- Vidéo -->
+    @for (video of videos(); track video.id; let i = $index) {
+      <!-- CHAQUE ITEM = 1 ÉCRAN ENTIER -->
+      <div class="feed-item" style="position: relative; height: 100dvh; width: 100%; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; background: #000; flex-shrink: 0;">
+
+        <!-- VIDÉO : position absolute pour remplir tout l'écran -->
         <video
           #videoRef
           [attr.data-id]="video.id"
@@ -13,6 +16,7 @@
           playsinline
           preload="auto"
           class="feed-video"
+          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block; z-index: 1;"
           (click)="togglePlay(video.id)">
         </video>
 
@@ -32,22 +36,36 @@
         <div class="gradient-top"></div>
         <div class="gradient-bottom"></div>
 
+        <!-- ✅ BADGE PROMO -->
+        @if (video.promotion) {
+          <div style="position: absolute; top: 60px; left: 16px; z-index: 10; background: #ef4444; color: white; padding: 6px 14px; border-radius: 10px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 12px rgba(239,68,68,0.4);">
+            🔥 -{{ video.promotion.valeurRemise }}%
+          </div>
+        }
+
         <!-- Infos plat bas gauche -->
         <div class="info-panel">
           <div class="restaurant-row">
-            <img [src]="video.restaurantLogo" [alt]="video.restaurantNom"
-                 class="restaurant-logo"/>
+            <img [src]="video.restaurantLogo" [alt]="video.restaurantNom" class="restaurant-logo"/>
             <span class="restaurant-name">{{ video.restaurantNom }}</span>
-            <a [routerLink]="['/restaurant', video.restaurantId]" class="btn-voir">
-              Voir
-            </a>
+            <a [routerLink]="['/restaurant', video.restaurantId]" class="btn-voir">Voir</a>
           </div>
 
           <h2 class="plat-name">{{ video.platNom }}</h2>
           <p class="plat-desc">{{ video.platDescription }}</p>
 
+          <!-- ✅ PRIX AVEC PROMO -->
           <div class="price-row">
-            <span class="price">{{ video.prix | number }} FCFA</span>
+            @if (video.promotion) {
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="background: #22c55e; color: white; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 8px;">-{{ video.promotion.valeurRemise }}%</span>
+                <span class="price" style="color: #22c55e;">{{ video.prix | number }} FCFA</span>
+                <span style="font-size: 14px; color: rgba(255,255,255,0.5); text-decoration: line-through;">{{ video.prixOriginal | number }} FCFA</span>
+              </div>
+              <span style="font-size: 12px; color: #fbbf24; font-weight: 700;">⏱️ {{ getTempsRestant(video.promotion.dateFin) }}</span>
+            } @else {
+              <span class="price">{{ video.prix | number }} FCFA</span>
+            }
             <span class="time">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -57,19 +75,12 @@
           </div>
 
           <!-- Bouton commander -->
-          <button (click)="commander(video)" class="btn-commander"
-                  [class.added]="addedToCart() === video.id">
+          <button (click)="commander(video)" class="btn-commander" [class.added]="addedToCart() === video.id">
             @if (addedToCart() === video.id) {
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M20 6L9 17l-5-5"/>
-              </svg>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
               Ajouté !
             } @else {
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
-              </svg>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
               Commander
             }
           </button>
@@ -77,34 +88,22 @@
 
         <!-- Boutons droite -->
         <div class="actions-panel">
-
           <!-- SON -->
           <button (click)="toggleMute()" class="action-btn">
             <div class="action-icon" [class.sound-on]="!muted()">
               @if (muted()) {
-                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                  <line x1="23" y1="9" x2="17" y2="15"/>
-                  <line x1="17" y1="9" x2="23" y2="15"/>
-                </svg>
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
               } @else {
-                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                </svg>
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
               }
             </div>
             <span class="action-label">{{ muted() ? 'Muet' : 'Son ON' }}</span>
           </button>
 
           <!-- LIKE -->
-          <button (click)="toggleLike(video)" class="action-btn">
+          <button (click)="toggleLike(video.id)" class="action-btn">
             <div class="action-icon">
-              <svg class="w-6 h-6 transition-all duration-200"
-                   [class]="video.liked ? 'text-red-500 fill-red-500' : 'text-white fill-none'"
-                   viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
+              <svg class="w-6 h-6 transition-all duration-200" [class]="video.liked ? 'text-red-500 fill-red-500' : 'text-white fill-none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             </div>
             <span class="action-label">{{ formatCount(video.likes) }}</span>
           </button>
@@ -112,9 +111,7 @@
           <!-- COMMENTAIRES -->
           <button (click)="ouvrirCommentaires(video)" class="action-btn">
             <div class="action-icon">
-              <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
+              <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </div>
             <span class="action-label">{{ formatCount(video.commentaires.length) }}</span>
           </button>
@@ -122,11 +119,7 @@
           <!-- PARTAGER -->
           <button (click)="partager(video)" class="action-btn">
             <div class="action-icon">
-              <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
+              <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             </div>
             <span class="action-label">{{ formatCount(video.partages) }}</span>
           </button>
@@ -136,32 +129,28 @@
         @if (i === 0) {
           <div class="swipe-hint">
             <p>Swipe pour voir plus</p>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="m6 9 6 6 6-6"/>
-            </svg>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
           </div>
         }
       </div>
     }
   </div>
 
-  <!-- Panel commentaires -->
+  <!-- ===== PANEL COMMENTAIRES ===== -->
   @if (commentOpen()) {
+    <!-- Backdrop -->
     <div class="comment-backdrop" (click)="fermerCommentaires()"></div>
 
+    <!-- Panel -->
     <div class="comment-panel">
       <!-- Handle -->
-      <div class="comment-handle">
-        <div class="handle-bar"></div>
-      </div>
+      <div class="comment-handle"><div class="handle-bar"></div></div>
 
       <!-- Header -->
       <div class="comment-header">
         <h3>Commentaires ({{ activeComments().length }})</h3>
         <button (click)="fermerCommentaires()" class="btn-close">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6 6 18M6 6l12 12"/>
-          </svg>
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
 
@@ -198,9 +187,8 @@
                  (input)="onCommentChange($event)"
                  (keydown.enter)="ajouterCommentaire()"
                  class="comment-input"/>
-          <button (click)="ajouterCommentaire()"
-                  [disabled]="!nouveauComment().trim()"
-                  class="btn-send">
+          <!-- BOUTON ENVOI : pas de disabled pour être sûr que le clic passe -->
+          <button (click)="ajouterCommentaire()" class="btn-send" style="opacity: 1;">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
             </svg>

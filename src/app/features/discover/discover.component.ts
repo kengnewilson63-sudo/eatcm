@@ -6,31 +6,11 @@ import {
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { CommandeService } from '../../core/services/commande.service';
+import { VideoService, Commentaire, VideoFeed } from '../../core/services/video.service';
+import { RestaurantService, Restaurant } from '../../core/services/restaurant.service';
+import { PlatService } from '../../core/services/plat.service';
+import { Plat } from '../../core/models'; // 🔥 CORRIGÉ : import depuis models
 import { Subscription } from 'rxjs';
-
-export interface Commentaire {
-  id: number;
-  auteur: string;
-  avatar: string;
-  texte: string;
-  date: string;
-}
-
-export interface VideoPlat {
-  id: number;
-  platNom: string;
-  platDescription: string;
-  prix: number;
-  tempsPreparation: number;
-  restaurantId: number;
-  restaurantNom: string;
-  restaurantLogo: string;
-  videoUrl: string;
-  likes: number;
-  commentaires: Commentaire[];
-  partages: number;
-  liked: boolean;
-}
 
 @Component({
   selector: 'app-discover',
@@ -41,12 +21,16 @@ export interface VideoPlat {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
-  private cmdSvc = inject(CommandeService);
-  private zone   = inject(NgZone);
+  private cmdSvc   = inject(CommandeService);
+  private videoSvc = inject(VideoService);
+  private zone     = inject(NgZone);
+  private restaurantService = inject(RestaurantService);
+  private platService = inject(PlatService);
 
   @ViewChildren('videoRef') videoRefs!: QueryList<ElementRef<HTMLVideoElement>>;
 
-  videos         = signal<VideoPlat[]>([]);
+  readonly videos = this.videoSvc.videos;
+
   muted          = signal(true);
   commentOpen    = signal(false);
   activeComments = signal<Commentaire[]>([]);
@@ -55,67 +39,66 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
   addedToCart    = signal<number | null>(null);
   videoEnPause   = signal<number | null>(null);
 
+  restaurants    = signal<Restaurant[]>([]);
+  loading        = signal(false);
+  erreur         = signal('');
+
   private observer!: IntersectionObserver;
   private videoSub!: Subscription;
 
   ngOnInit(): void {
-    this.videos.set([
-      {
-        id: 1,
-        platNom: 'Ndolé au poisson fumé',
-        platDescription: 'Notre fameux ndolé avec du poisson fumé, accompagné de plantain mûr et de miondo fait maison.',
-        prix: 3500, tempsPreparation: 20,
-        restaurantId: 1,
-        restaurantNom: 'Chez Maman Bibiane',
-        restaurantLogo: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80&q=80',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        likes: 245, partages: 38, liked: false,
-        commentaires: [
-          { id: 1, auteur: 'Paul K.',  avatar: 'https://i.pravatar.cc/40?img=1', texte: 'Trop bon ce ndolé 😍🔥', date: 'il y a 2h' },
-          { id: 2, auteur: 'Marie B.', avatar: 'https://i.pravatar.cc/40?img=2', texte: "J'ai commandé hier, livraison rapide !", date: 'il y a 5h' },
-        ],
+    this.chargerDonneesReelles();
+  }
+
+  private chargerDonneesReelles(): void {
+    this.loading.set(true);
+    this.restaurantService.getRestaurants().subscribe({
+      next: (restos: Restaurant[]) => {
+        this.restaurants.set(restos);
+        this.loading.set(false);
+
+        restos.forEach(r => {
+          this.platService.getPlats(r.id).subscribe({
+            next: (plats: Plat[]) => {
+              const feedItems = plats
+                .filter((p: Plat) => p.disponible)
+                .map((p: Plat) => this.mapPlatToFeed(p, r));
+
+              this.videoSvc.videos.update(current => {
+                const existingIds = new Set(current.map(v => v.id));
+                const nouveaux = feedItems.filter((f: VideoFeed) => !existingIds.has(f.id));
+                return [...current, ...nouveaux];
+              });
+            },
+            error: (err: any) => console.error(`Erreur plats restaurant ${r.id}:`, err)
+          });
+        });
       },
-      {
-        id: 2,
-        platNom: 'Brochettes de bœuf grillées',
-        platDescription: 'Brochettes marinées 24h aux épices locales, grillées au feu de bois.',
-        prix: 2500, tempsPreparation: 15,
-        restaurantId: 2,
-        restaurantNom: 'Le Grill Akwa',
-        restaurantLogo: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=80&q=80',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        likes: 512, partages: 92, liked: true,
-        commentaires: [
-          { id: 1, auteur: 'Sophie M.', avatar: 'https://i.pravatar.cc/40?img=4', texte: 'Ces brochettes 🔥🔥🔥', date: 'il y a 1h' },
-        ],
-      },
-      {
-        id: 3,
-        platNom: 'Poulet DG',
-        platDescription: 'Poulet entier mijoté avec plantains dorés, poivrons et épices du chef.',
-        prix: 5000, tempsPreparation: 35,
-        restaurantId: 1,
-        restaurantNom: 'Chez Maman Bibiane',
-        restaurantLogo: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80&q=80',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-        likes: 198, partages: 24, liked: false,
-        commentaires: [
-          { id: 1, auteur: 'Alice N.', avatar: 'https://i.pravatar.cc/40?img=6', texte: "Le poulet DG c'est la vie 😭❤️", date: 'il y a 4h' },
-        ],
-      },
-      {
-        id: 4,
-        platNom: 'Pizza 4 fromages',
-        platDescription: 'Pâte fine maison, mozzarella, gorgonzola, parmesan et emmental fondus.',
-        prix: 6000, tempsPreparation: 25,
-        restaurantId: 3,
-        restaurantNom: 'Pizza Roma Douala',
-        restaurantLogo: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=80&q=80',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
-        likes: 321, partages: 57, liked: false,
-        commentaires: [],
-      },
-    ]);
+      error: (err: any) => {
+        this.loading.set(false);
+        this.erreur.set('Impossible de charger les restaurants.');
+        console.error('Erreur chargement restaurants:', err);
+      }
+    });
+  }
+
+  private mapPlatToFeed(plat: Plat, restaurant: Restaurant): VideoFeed {
+    return {
+      id: plat.id,
+      restaurantId: restaurant.id,
+      restaurantNom: restaurant.nom,
+      restaurantLogo: restaurant.logoUrl || '',
+      platNom: plat.nom,
+      platDescription: plat.description || '',
+      prix: plat.prix,
+      tempsPreparation: plat.tempsPreparation || 15,
+      likes: plat.likes || 0,
+      commentaires: [],
+      partages: 0,
+      videoUrl: plat.videoUrl || '',
+      videoType: 'upload',
+      liked: false,
+    };
   }
 
   ngAfterViewInit(): void {
@@ -128,18 +111,15 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private setupObserver(): void {
-    if (this.observer) {
-      this.observer.disconnect();
-    }
+    if (this.observer) this.observer.disconnect();
 
     this.observer = new IntersectionObserver(
       (entries) => {
         this.zone.run(() => {
           entries.forEach(entry => {
             const video = entry.target as HTMLVideoElement;
-            const isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.6;
-
-            video.dataset['visible'] = isVisible ? 'true' : 'false';
+            const isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.5;
+            video.dataset['active'] = isVisible ? 'true' : 'false';
 
             if (isVisible) {
               video.muted = this.muted();
@@ -153,7 +133,7 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
           });
         });
       },
-      { threshold: 0.6 }
+      { threshold: 0.5 }
     );
 
     this.videoRefs.forEach(ref => {
@@ -165,10 +145,9 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
     const newMuted = !this.muted();
     this.muted.set(newMuted);
 
-    // Applique uniquement sur la vidéo visible (active)
     this.videoRefs.forEach(ref => {
       const v = ref.nativeElement;
-      if (v.dataset['visible'] === 'true') {
+      if (v.dataset['active'] === 'true') {
         v.muted = newMuted;
         if (!newMuted && v.paused) {
           v.play().catch(() => {
@@ -197,18 +176,13 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  toggleLike(v: VideoPlat): void {
-    this.videos.update(list => list.map(x =>
-      x.id === v.id
-        ? { ...x, liked: !x.liked, likes: x.liked ? x.likes - 1 : x.likes + 1 }
-        : x
-    ));
+  toggleLike(videoId: number): void {
+    this.videoSvc.toggleLike(videoId);
   }
 
-  ouvrirCommentaires(v: VideoPlat): void {
-    const video = this.videos().find(x => x.id === v.id);
-    this.activeComments.set(video ? [...video.commentaires] : []);
-    this.activeVideoId.set(v.id);
+  ouvrirCommentaires(video: VideoFeed): void {
+    this.activeComments.set([...video.commentaires]);
+    this.activeVideoId.set(video.id);
     this.commentOpen.set(true);
 
     setTimeout(() => {
@@ -237,14 +211,7 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
       date: "à l'instant",
     };
 
-    // Met à jour la source videos()
-    this.videos.update(list => list.map(v =>
-      v.id === videoId
-        ? { ...v, commentaires: [...v.commentaires, newC] }
-        : v
-    ));
-
-    // Met à jour le panel en direct
+    this.videoSvc.ajouterCommentaire(videoId, newC);
     this.activeComments.update(c => [...c, newC]);
     this.nouveauComment.set('');
 
@@ -254,7 +221,7 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 50);
   }
 
-  async partager(v: VideoPlat): Promise<void> {
+  async partager(v: VideoFeed): Promise<void> {
     const url = `${window.location.origin}/restaurant/${v.restaurantId}`;
     if (navigator.share) {
       try {
@@ -264,10 +231,12 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
       await navigator.clipboard.writeText(url).catch(() => {});
       alert('Lien copié ! 🔗');
     }
-    this.videos.update(l => l.map(x => x.id === v.id ? { ...x, partages: x.partages + 1 } : x));
+    this.videoSvc.videos.update(list => 
+      list.map(x => x.id === v.id ? { ...x, partages: x.partages + 1 } : x)
+    );
   }
 
-  commander(v: VideoPlat): void {
+  commander(v: VideoFeed): void {
     this.cmdSvc.ajouterAuPanier({
       id: v.id,
       restaurantId: v.restaurantId,
@@ -288,6 +257,19 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
 
   formatCount(n: number): string {
     return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+  }
+
+  getPromo(video: VideoFeed) {
+    return video.promotion;
+  }
+
+  getTempsRestant(dateFin: string): string {
+    const diff = new Date(dateFin).getTime() - Date.now();
+    if (diff <= 0) return 'Expirée';
+    const jours = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const heures = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (jours > 0) return `${jours}j ${heures}h`;
+    return `${heures}h`;
   }
 
   onCommentChange(e: Event): void {

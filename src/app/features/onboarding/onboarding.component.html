@@ -1,0 +1,120 @@
+<div class="onboarding-wrapper">
+
+  <!-- Image de fond -->
+  <div class="absolute inset-0 z-0">
+    <img [src]="slide.image" [alt]="slide.titre"
+         class="w-full h-full object-cover transition-all duration-700"/>
+    <div class="absolute inset-0"
+         style="background:linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.2) 100%)">
+    </div>
+  </div>
+
+  <!-- Bouton passer -->
+  <div class="absolute top-safe top-4 right-4 z-20">
+    <button (click)="passer()"
+            class="px-4 py-2 rounded-full text-white/80 text-sm font-semibold
+                   border border-white/20 bg-white/10 backdrop-blur
+                   border-none cursor-pointer hover:bg-white/20 transition-colors">
+      Passer →
+    </button>
+  </div>
+
+  <!-- Contenu principal -->
+  <div class="relative z-10 flex flex-col justify-end h-full px-6 pb-16">
+
+    <!-- Emoji + Badge -->
+    <div class="mb-6">
+      <div class="w-20 h-20 rounded-3xl flex items-center justify-center text-5xl mb-4"
+           style="background:rgba(255,255,255,0.15);backdrop-filter:blur(10px)">
+        {{ slide.emoji }}
+      </div>
+
+      <!-- Numéro slide -->
+      <span class="px-3 py-1 rounded-full text-xs font-bold text-white"
+            [style.background]="slide.couleur">
+        {{ slideActuel() + 1 }} / {{ slides.length }}
+      </span>
+    </div>
+
+    <!-- Texte -->
+    <h1 class="text-3xl font-extrabold text-white mb-3 leading-tight"
+        style="text-shadow:0 2px 20px rgba(0,0,0,0.5)">
+      {{ slide.titre }}
+    </h1>
+    <p class="text-white/80 text-base leading-relaxed mb-8 max-w-sm">
+      {{ slide.description }}
+    </p>
+
+    <!-- Indicateurs dots -->
+    <div class="flex items-center gap-2 mb-8">
+      @for (s of slides; track $index; let i = $index) {
+        <button (click)="allerA(i)"
+                class="rounded-full transition-all duration-300 border-none cursor-pointer"
+                [style.background]="i === slideActuel() ? slide.couleur : 'rgba(255,255,255,0.4)'"
+                [style.width]="i === slideActuel() ? '24px' : '8px'"
+                style="height:8px">
+        </button>
+      }
+    </div>
+
+    <!-- Boutons navigation -->
+    <div class="flex gap-3">
+
+      @if (slideActuel() > 0) {
+        <button (click)="precedent()"
+                class="w-14 h-14 rounded-2xl border-2 border-white/30 bg-white/10
+                       backdrop-blur flex items-center justify-center
+                       border-none cursor-pointer hover:bg-white/20 transition-colors
+                       flex-shrink-0">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+      }
+
+      <button (click)="suivant()"
+              class="flex-1 h-14 rounded-2xl text-white font-bold text-base
+                     border-none cursor-pointer active:scale-95 transition-all
+                     flex items-center justify-center gap-2"
+              [style.background]="slide.couleur"
+              style="box-shadow:0 8px 24px rgba(255,90,54,0.5)">
+
+        @if (!estDernier) {
+          Suivant
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        } @else {
+          🚀 Commencer maintenant
+        }
+      </button>
+    </div>
+
+    <!-- Déjà un compte -->
+    @if (estDernier) {
+      <p class="text-center text-white/60 text-sm mt-5">
+        Déjà un compte ?
+        <button (click)="router.navigate(['/auth/login'])"
+                class="text-white font-bold border-none bg-transparent
+                       cursor-pointer hover:underline ml-1">
+          Se connecter
+        </button>
+      </p>
+    }
+  </div>
+
+  <!-- Logo EatsCM en haut -->
+  <div class="absolute top-4 left-4 z-20 flex items-center gap-2">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center"
+         style="background:#FF5A36">
+      <svg viewBox="0 0 32 32" fill="none" class="w-5 h-5">
+        <path d="M6 10h20M6 16h12M6 22h15" stroke="white"
+              stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="text-white font-extrabold text-lg">EatsCM</span>
+  </div>
+
+</div>
