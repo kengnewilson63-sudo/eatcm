@@ -24,12 +24,13 @@ export class DashboardLayoutComponent {
       { label:'Mon Menu',     icon:'M12 5v14M5 12h14',                                                                  route:'/dashboard/restaurant/menu' },
       { label:'Statistiques', icon:'M18 20V10M12 20V4M6 20v-6',                                                        route:'/dashboard/restaurant/stats' },
       { label:'Mes livreurs', icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', route:'/dashboard/restaurant/livreurs' },
-       { label:'Horaires', icon:'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 v 9 0 0 1 18 0z', route:'/dashboard/restaurant/horaires' },
-              {
-    route: '/dashboard/restaurant/promotions',
-    label: ' Promotions',
-    icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-  }
+      { label:'Horaires', icon:'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', route:'/dashboard/restaurant/horaires' },
+      { label:'Paramètres', icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0-10a1 1 0 0 1 1 1v1.07A7.002 7.002 0 0 1 17.93 9H19a1 1 0 0 1 0 2h-1.07A7.002 7.002 0 0 1 14 15.93V17a1 1 0 0 1-2 0v-1.07A7.002 7.002 0 0 1 7.07 12H6a1 1 0 0 1 0-2h1.07A7.002 7.002 0 0 1 11 6.07V5a1 1 0 0 1 1-1z', route:'/dashboard/restaurant/parametres' },
+      {
+        route: '/dashboard/restaurant/promotions',
+        label: 'Promotions',
+        icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      }
     ];
     if (role === 'LIVREUR') return [
       { label:'Mes courses', icon:'M1 3h15v13H1zM16 8h4l3 5v3h-7V8z', route:'/dashboard/livreur/courses' },

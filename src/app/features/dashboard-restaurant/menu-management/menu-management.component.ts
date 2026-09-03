@@ -1,11 +1,12 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Plat } from '../../../core/models';
 import { VideoService, VideoFeed } from '../../../core/services/video.service';
 import { PlatService } from '../../../core/services/plat.service';
 import { RestaurantService } from '../../../core/services/restaurant.service';
-import { AuthService } from '../../../core/services/auth.service';
+import { NotificationService } from '../../../core/services/notification.service';
 
 @Component({
   selector: 'app-menu-management',
@@ -18,37 +19,40 @@ export class MenuManagementComponent implements OnInit {
   private videoSvc = inject(VideoService);
   private platService = inject(PlatService);
   private restaurantService = inject(RestaurantService);
-  private authService = inject(AuthService);
+  private notif = inject(NotificationService);
+  private router = inject(Router);
 
-  // Infos restaurant (chargées depuis le backend)
   readonly restaurantId   = signal<number>(0);
   readonly restaurantNom  = signal('Mon Restaurant');
   readonly restaurantLogo = signal('');
 
-  // Signaux
   plats         = signal<Plat[]>([]);
   loading       = signal(false);
   erreur        = signal('');
+  
   modalAjout    = signal(false);
-  nouveauNom    = signal('');
-  nouvelleDescription = signal('');
-  nouveauPrix   = signal<number | null>(null);
-  nouveauTemps  = signal<number | null>(null);
-  nouvelleCategorie = signal('Plats traditionnels');
-  imageSelectionnee = signal<string | null>(null);
-  videoPreview  = signal<string | null>(null);
-  videoSelectionnee = signal<string | null>(null);
-  uploadLoading = signal(false);
-  uploadProgress = signal(0);
+  modalEdition  = signal(false);
+  platEnEdition = signal<Plat | null>(null);
 
-  // Promo
+  // Formulaire ajout / édition
+  nouveauNom          = signal('');
+  nouvelleDescription = signal('');
+  nouveauPrix         = signal<number | null>(null);
+  nouveauTemps        = signal<number | null>(null);
+  nouvelleCategorie   = signal('Plats traditionnels');
+  imageSelectionnee   = signal<string | null>(null);
+  videoPreview        = signal<string | null>(null);
+  videoSelectionnee   = signal<string | null>(null);
+  uploadLoading       = signal(false);
+  uploadProgress      = signal(0);
+  estPopulaire        = signal(false);
+
   enPromo           = signal(false);
   valeurRemisePromo = signal<number | null>(null);
   dateFinPromo      = signal('');
 
-  categories = ['Plats traditionnels', 'Grillades', 'Boissons', 'Entrées', 'Desserts'];
+  categories = ['Plats traditionnels', 'Grillades', 'Boissons', 'Entrées', 'Desserts', 'Pizzas', 'Burgers', 'Poissons'];
 
-  // Vidéos du restaurant dans Discover
   readonly mesVideos = computed(() =>
     this.videoSvc.videos().filter(v => v.restaurantId === this.restaurantId())
   );
@@ -57,7 +61,6 @@ export class MenuManagementComponent implements OnInit {
     this.chargerMonRestaurant();
   }
 
-  // 🔥 Charge le restaurant du user connecté, puis ses plats
   private chargerMonRestaurant(): void {
     this.loading.set(true);
     this.restaurantService.getMonRestaurant().subscribe({
@@ -67,7 +70,7 @@ export class MenuManagementComponent implements OnInit {
         this.restaurantLogo.set(resto.logoUrl || '');
         this.chargerPlats(resto.id);
       },
-      error: (err) => {
+      error: (err: any) => {
         this.loading.set(false);
         this.erreur.set('Impossible de charger ton restaurant.');
         console.error(err);
@@ -77,11 +80,11 @@ export class MenuManagementComponent implements OnInit {
 
   private chargerPlats(restaurantId: number): void {
     this.platService.getPlats(restaurantId).subscribe({
-      next: (plats) => {
+      next: (plats: Plat[]) => {
         this.plats.set(plats);
         this.loading.set(false);
       },
-      error: (err) => {
+      error: (err: any) => {
         this.loading.set(false);
         this.erreur.set('Erreur chargement du menu.');
         console.error(err);
@@ -90,20 +93,21 @@ export class MenuManagementComponent implements OnInit {
   }
 
   ouvrirAjout(): void {
+    this.resetModal();
     this.modalAjout.set(true);
-    this.nouveauNom.set('');
-    this.nouvelleDescription.set('');
-    this.nouveauPrix.set(null);
-    this.nouveauTemps.set(null);
-    this.nouvelleCategorie.set('Plats traditionnels');
-    this.imageSelectionnee.set(null);
-    this.videoPreview.set(null);
-    this.videoSelectionnee.set(null);
-    this.uploadProgress.set(0);
-    this.uploadLoading.set(false);
-    this.enPromo.set(false);
-    this.valeurRemisePromo.set(null);
-    this.dateFinPromo.set('');
+  }
+
+  ouvrirEdition(plat: Plat): void {
+    this.platEnEdition.set(plat);
+    this.nouveauNom.set(plat.nom);
+    this.nouvelleDescription.set(plat.description || '');
+    this.nouveauPrix.set(plat.prix);
+    this.nouveauTemps.set(plat.tempsPreparation || 15);
+    this.nouvelleCategorie.set(plat.categorie || 'Plats traditionnels');
+    this.imageSelectionnee.set(plat.imageUrl || null);
+    this.videoPreview.set(plat.videoUrl || null);
+    this.estPopulaire.set(plat.populaire || false);
+    this.modalEdition.set(true);
   }
 
   onField(field: string, event: Event): void {
@@ -117,10 +121,12 @@ export class MenuManagementComponent implements OnInit {
       case 'prix':        this.nouveauPrix.set(val ? Number(val) : null); break;
       case 'temps':       this.nouveauTemps.set(val ? Number(val) : null); break;
       case 'categorie':   this.nouvelleCategorie.set(val); break;
+      case 'populaire':   this.estPopulaire.set(checked); break;
       case 'enPromo':     this.enPromo.set(checked); break;
       case 'valeurRemise': this.valeurRemisePromo.set(val ? Number(val) : null); break;
       case 'dateFinPromo': this.dateFinPromo.set(val); break;
     }
+    this.erreur.set('');
   }
 
   onImage(event: Event): void {
@@ -141,48 +147,86 @@ export class MenuManagementComponent implements OnInit {
 
     let progress = 0;
     const interval = setInterval(() => {
-      progress += 10;
+      progress += 20;
       this.uploadProgress.set(progress);
       if (progress >= 100) {
         clearInterval(interval);
         this.uploadLoading.set(false);
       }
-    }, 200);
+    }, 150);
   }
 
-  // 🔥 AJOUTE un plat au backend
   ajouterPlat(): void {
     const nom = this.nouveauNom().trim();
     const prix = this.nouveauPrix();
-    if (!nom || !prix) return;
+    if (!nom || !prix) {
+      this.notif.warning('Veuillez renseigner le nom et le prix du plat.');
+      return;
+    }
 
     const platData: Partial<Plat> = {
+      restaurantId: this.restaurantId() || 1,
       nom,
       description: this.nouvelleDescription(),
       prix,
       categorie: this.nouvelleCategorie(),
       tempsPreparation: this.nouveauTemps() ?? 15,
-      imageUrl: this.imageSelectionnee() ?? '',
+      imageUrl: this.imageSelectionnee() ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80',
       videoUrl: this.videoPreview() ?? '',
       disponible: true,
-      populaire: false,
+      populaire: this.estPopulaire(),
       likes: 0,
     };
 
     this.platService.createPlat(platData).subscribe({
-      next: (platCree) => {
-        // Ajoute localement
+      next: (platCree: Plat) => {
         this.plats.update(list => [...list, platCree]);
+        this.notif.success(`Plat "${platCree.nom}" ajouté avec succès !`);
 
-        // Publie sur Discover si vidéo présente
         if (this.videoPreview()) {
           this.publierSurDiscover(platCree);
         }
 
         this.resetModal();
       },
-      error: (err) => {
-        this.erreur.set('Erreur lors de l\'ajout du plat.');
+      error: (err: any) => {
+        this.notif.error("Erreur lors de l'ajout du plat.");
+        console.error(err);
+      }
+    });
+  }
+
+  sauvegarderEdition(): void {
+    const p = this.platEnEdition();
+    if (!p) return;
+
+    const nom = this.nouveauNom().trim();
+    const prix = this.nouveauPrix();
+    if (!nom || !prix) {
+      this.notif.warning('Veuillez renseigner le nom et le prix.');
+      return;
+    }
+
+    const updates: Partial<Plat> = {
+      nom,
+      description: this.nouvelleDescription(),
+      prix,
+      categorie: this.nouvelleCategorie(),
+      tempsPreparation: this.nouveauTemps() ?? 15,
+      imageUrl: this.imageSelectionnee() ?? p.imageUrl,
+      videoUrl: this.videoPreview() ?? p.videoUrl,
+      populaire: this.estPopulaire(),
+    };
+
+    this.platService.updatePlat(p.id, updates).subscribe({
+      next: (platModifie: Plat) => {
+        this.plats.update(list => list.map(item => item.id === p.id ? platModifie : item));
+        this.notif.success(`Plat "${platModifie.nom}" mis à jour !`);
+        this.modalEdition.set(false);
+        this.platEnEdition.set(null);
+      },
+      error: (err: any) => {
+        this.notif.error('Erreur lors de la modification du plat.');
         console.error(err);
       }
     });
@@ -207,7 +251,6 @@ export class MenuManagementComponent implements OnInit {
       liked: false,
     };
 
-    // Ajoute promo si cochée
     if (this.enPromo() && this.valeurRemisePromo() && this.dateFinPromo()) {
       const prixPromo = Math.round(prix * (1 - this.valeurRemisePromo()! / 100));
       this.videoSvc.ajouterVideo({
@@ -224,8 +267,10 @@ export class MenuManagementComponent implements OnInit {
     }
   }
 
-  private resetModal(): void {
+  resetModal(): void {
     this.modalAjout.set(false);
+    this.modalEdition.set(false);
+    this.platEnEdition.set(null);
     this.nouveauNom.set('');
     this.nouvelleDescription.set('');
     this.nouveauPrix.set(null);
@@ -235,6 +280,8 @@ export class MenuManagementComponent implements OnInit {
     this.videoPreview.set(null);
     this.videoSelectionnee.set(null);
     this.uploadProgress.set(0);
+    this.uploadLoading.set(false);
+    this.estPopulaire.set(false);
     this.enPromo.set(false);
     this.valeurRemisePromo.set(null);
     this.dateFinPromo.set('');
@@ -243,13 +290,12 @@ export class MenuManagementComponent implements OnInit {
   supprimerVideo(videoId: number): void {
     if (!confirm('Supprimer cette vidéo du feed Discover ?')) return;
     this.videoSvc.supprimerVideo(videoId);
+    this.notif.info('Vidéo retirée du feed Discover.');
   }
 
-  // 🔥 TOGGLE disponible sur le backend
   toggleDisponible(platId: number): void {
     const plat = this.plats().find(p => p.id === platId);
     if (!plat) return;
-
     const nouveauStatut = !plat.disponible;
 
     this.platService.toggleDisponible(platId, nouveauStatut).subscribe({
@@ -257,15 +303,15 @@ export class MenuManagementComponent implements OnInit {
         this.plats.update(list =>
           list.map(p => p.id === platId ? { ...p, disponible: nouveauStatut } : p)
         );
+        this.notif.info(nouveauStatut ? `"${plat.nom}" est disponible.` : `"${plat.nom}" est marqué épuisé.`);
       },
-      error: (err) => {
-        this.erreur.set('Erreur lors de la mise à jour.');
+      error: (err: any) => {
+        this.notif.error('Erreur lors du changement de disponibilité.');
         console.error(err);
       }
     });
   }
 
-  // 🔥 SUPPRIME un plat sur le backend
   supprimerPlat(platId: number): void {
     if (!confirm('Supprimer ce plat ?')) return;
 
@@ -273,9 +319,10 @@ export class MenuManagementComponent implements OnInit {
       next: () => {
         this.plats.update(list => list.filter(p => p.id !== platId));
         this.videoSvc.supprimerVideo(platId);
+        this.notif.success('Plat supprimé du menu.');
       },
-      error: (err) => {
-        this.erreur.set('Erreur lors de la suppression.');
+      error: (err: any) => {
+        this.notif.error('Erreur lors de la suppression du plat.');
         console.error(err);
       }
     });

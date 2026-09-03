@@ -2,6 +2,8 @@ import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } 
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { CommandeService } from '../../../core/services/commande.service';
+import { RestaurantService } from '../../../core/services/restaurant.service';
+import { PlatService } from '../../../core/services/plat.service';
 import { Restaurant, Plat } from '../../../core/models';
 
 @Component({
@@ -12,8 +14,10 @@ import { Restaurant, Plat } from '../../../core/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RestaurantDetailComponent implements OnInit {
-  private route  = inject(ActivatedRoute);
+  private route = inject(ActivatedRoute);
   private cmdSvc = inject(CommandeService);
+  private restoSvc = inject(RestaurantService);
+  private platSvc = inject(PlatService);
 
   readonly totalItems = this.cmdSvc.totalItems;
   readonly totalPrix  = this.cmdSvc.totalPrix;
@@ -28,7 +32,6 @@ export class RestaurantDetailComponent implements OnInit {
     return t === 'Tous' ? this.plats() : this.plats().filter(p => p.categorie === t);
   });
 
-  // ✅ FIX — données par restaurant selon l'ID dans l'URL
   private mockRestos: Record<number, Restaurant> = {
     1: {
       id: 1, nom: 'Chez Maman Bibiane',
@@ -143,19 +146,32 @@ export class RestaurantDetailComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    // ✅ FIX PRINCIPAL — lit l'ID depuis l'URL et charge le bon restaurant
     const idParam = this.route.snapshot.paramMap.get('id');
-    const id      = idParam ? parseInt(idParam, 10) : 1;
+    const id = idParam ? parseInt(idParam, 10) : 1;
 
-    setTimeout(() => {
-      // Charge le bon restaurant — fallback sur resto 1 si ID inconnu
-      const resto = this.mockRestos[id] ?? this.mockRestos[1];
-      const plats = this.mockPlatsParResto[id] ?? this.mockPlatsParResto[1];
-
-      this.restaurant.set(resto);
-      this.plats.set(plats);
-      this.loading.set(false);
-    }, 300);
+    this.restoSvc.getRestaurant(id).subscribe({
+      next: (resto) => {
+        this.restaurant.set(resto);
+        this.platSvc.getPlats(id).subscribe({
+          next: (plats) => {
+            this.plats.set(plats);
+            this.loading.set(false);
+          },
+          error: () => {
+            this.plats.set(this.mockPlatsParResto[id] ?? this.mockPlatsParResto[1] ?? []);
+            this.loading.set(false);
+          }
+        });
+      },
+      error: () => {
+        // Fallback mock si ID non présent en DB
+        const resto = this.mockRestos[id] ?? this.mockRestos[1];
+        const plats = this.mockPlatsParResto[id] ?? this.mockPlatsParResto[1];
+        this.restaurant.set(resto);
+        this.plats.set(plats);
+        this.loading.set(false);
+      }
+    });
   }
 
   ajouterAuPanier(plat: Plat): void {

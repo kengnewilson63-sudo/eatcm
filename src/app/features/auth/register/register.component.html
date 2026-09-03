@@ -1,13 +1,13 @@
-<div class="min-h-screen bg-gray-50 flex flex-col">
-  <div class="px-4 pt-6 pb-2 flex items-center gap-3">
+<div class="min-h-screen bg-gradient-to-b from-orange-50 via-white to-gray-50 flex flex-col">
+  <div class="px-4 pt-6 pb-2 flex items-center gap-3 max-w-md mx-auto w-full">
     <button (click)="etape()===1 ? null : back()" [routerLink]="etape()===1 ? '/home' : null"
-            class="w-9 h-9 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm cursor-pointer border-none active:scale-90 transition-all">
+            class="w-9 h-9 rounded-full bg-white/90 border border-orange-100 flex items-center justify-center shadow-sm cursor-pointer border-none active:scale-90 transition-all backdrop-blur-sm">
       <svg class="w-4 h-4 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
     </button>
-    <div class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-      <div class="h-full rounded-full transition-all duration-500" style="background:#FF5A36" [style.width]="etape()===1?'50%':'100%'"></div>
+    <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+      <div class="h-full rounded-full transition-all duration-500" style="background:linear-gradient(90deg,#FF5A36,#FF8A5B)" [style.width]="etape()===1?'50%':'100%'"></div>
     </div>
-    <span class="text-xs font-bold text-muted">{{etape()}}/2</span>
+    <span class="text-xs font-extrabold text-secondary">{{etape()}}/2</span>
   </div>
 
   <div class="flex-1 px-4 py-6 max-w-md mx-auto w-full">
@@ -15,34 +15,62 @@
     <!-- ÉTAPE 1 -->
     @if (etape()===1) {
       <div style="animation:fadeIn 0.3s ease-out">
-        <h1 class="text-2xl font-extrabold text-secondary mb-1">Bienvenue 🎉</h1>
-        <p class="text-muted text-sm mb-6">Comment veux-tu utiliser EatsCM ?</p>
+        <div class="mb-6 rounded-[28px] bg-white p-4 shadow-card border border-orange-50">
+          <div class="flex items-center justify-between mb-3">
+            <span class="inline-flex items-center gap-2 rounded-full bg-orange-50 text-primary px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em]">EatsCM</span>
+            <span class="text-[10px] text-muted font-bold">Ouverture Douala</span>
+          </div>
+          <h1 class="text-3xl font-extrabold tracking-tight text-secondary mb-2">Bienvenue 🎉</h1>
+          <p class="text-sm text-muted leading-relaxed">Choisis le profil qui te correspond pour créer ton compte et commencer ta mission.</p>
+        </div>
+
         <div class="space-y-3">
           @for (r of roles; track r.value) {
             <button (click)="selectRole(r.value)"
-                    class="w-full flex items-center gap-4 p-4 bg-white rounded-2xl border-2 transition-all cursor-pointer text-left active:scale-98"
-                    [class]="role()===r.value ? 'border-primary shadow-lg' : 'border-gray-100 hover:border-gray-200'">
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl" [class]="role()===r.value ? 'bg-primary/10' : 'bg-gray-50'">
+                    class="w-full flex items-center gap-4 p-4 bg-white rounded-2xl border-2 transition-all duration-200 cursor-pointer text-left active:scale-[0.99]"
+                    [class]="role()===r.value ? 'border-primary shadow-[0_12px_32px_rgba(255,90,54,0.18)] bg-orange-50/30' : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'">
+              <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl shadow-inner" [class]="role()===r.value ? 'bg-primary/10' : 'bg-gray-50'">
                 {{ r.emoji }}
               </div>
-              <div class="flex-1">
+              <div class="flex-1 min-w-0">
                 <span [class]="badgeClass(r.value)" class="mb-1">{{ r.label }}</span>
-                <p class="text-xs text-muted mt-1">{{ r.desc }}</p>
+                <p class="text-xs text-muted mt-1 leading-relaxed">{{ r.desc }}</p>
               </div>
-              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-                   [class]="role()===r.value ? 'border-primary bg-primary' : 'border-gray-300'">
-                @if (role()===r.value) { <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> }
+              <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                   [class]="role()===r.value ? 'border-primary bg-primary' : 'border-gray-300 bg-white'">
+                @if (role()===r.value) { <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> }
               </div>
             </button>
           }
         </div>
 
         @if (gpsLoading()) {
-          <div class="flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 animate-pulse mt-4">
-            <svg class="w-4 h-4 text-gray-400 animate-spin" viewBox="0 0 24 24" fill="none">
+          <div class="flex items-center gap-2 px-4 py-3 bg-white rounded-2xl border border-orange-100 shadow-sm animate-pulse mt-4">
+            <svg class="w-4 h-4 text-primary animate-spin" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-dashoffset="20"/>
             </svg>
-            <p class="text-xs text-gray-500">Détection de ta position...</p>
+            <p class="text-xs font-medium text-gray-600">Détection de ta position...</p>
+          </div>
+        }
+
+        @if (gpsRefusee() && !gpsLoading()) {
+          <div class="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-200 mt-4">
+            <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div class="flex-1">
+              <p class="font-bold text-amber-800 text-sm mb-1">
+                Localisation non détectée
+              </p>
+              <p class="text-xs text-amber-700 leading-relaxed mb-2">
+                On a activé <strong>Douala</strong> par défaut pour que tu puisses continuer sans blocage.
+              </p>
+              <button type="button" (click)="utiliserDoualaParDefaut()" class="text-xs font-bold text-amber-800 underline underline-offset-2 bg-transparent border-none cursor-pointer p-0">
+                Utiliser Douala par défaut
+              </button>
+            </div>
           </div>
         }
 
@@ -65,7 +93,7 @@
           </div>
         }
 
-        @if (villeAutorisee() && villeDetectee() && !gpsLoading()) {
+        @if (villeAutorisee() && villeDetectee() && !gpsLoading() && !gpsRefusee()) {
           <div class="flex items-center gap-2 px-4 py-3 bg-green-50 rounded-xl border border-green-100 mt-4">
             <svg class="w-4 h-4 text-green-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -77,7 +105,7 @@
           </div>
         }
 
-        <button (click)="nextEtape()" class="w-full mt-6 py-3.5 rounded-full text-white font-bold text-sm border-none cursor-pointer active:scale-95 transition-all" style="background:#FF5A36;box-shadow:0 4px 16px rgba(255,90,54,0.35)">
+        <button (click)="nextEtape()" class="w-full mt-6 py-3.5 rounded-full text-white font-extrabold text-sm border-none cursor-pointer active:scale-95 transition-all" style="background:linear-gradient(135deg,#FF5A36,#FF7A59);box-shadow:0 10px 24px rgba(255,90,54,0.3)">
           Continuer →
         </button>
       </div>
@@ -86,12 +114,15 @@
     <!-- ÉTAPE 2 -->
     @if (etape()===2) {
       <div style="animation:fadeIn 0.3s ease-out">
-        <div class="flex items-center gap-2 mb-5">
-          <h1 class="text-2xl font-extrabold text-secondary">Tes informations</h1>
-          <span [class]="badgeClass(role())">{{ roles.find(r=>r.value===role())?.emoji }} {{ roles.find(r=>r.value===role())?.label }}</span>
+        <div class="mb-5 rounded-[28px] bg-white p-4 shadow-card border border-orange-50">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <h1 class="text-2xl font-extrabold text-secondary">Tes informations</h1>
+            <span [class]="badgeClass(role())">{{ roles.find(r=>r.value===role())?.emoji }} {{ roles.find(r=>r.value===role())?.label }}</span>
+          </div>
+          <p class="text-xs text-muted">Complète les infos ci-dessous pour finaliser ton inscription.</p>
         </div>
 
-        <div class="bg-white rounded-3xl p-5 shadow-card space-y-4">
+        <div class="bg-white rounded-3xl p-5 shadow-card border border-gray-100 space-y-4">
 
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5"><label class="text-xs font-bold text-secondary uppercase tracking-wider">Prénom *</label><input type="text" placeholder="Paul" [value]="prenom()" (input)="onField('prenom',$event)" class="input-field"/></div>
@@ -145,6 +176,31 @@
                 }
               </label>
             </div>
+            <div class="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-100">
+              <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <p class="text-xs text-amber-700 font-medium leading-relaxed">Le compte restaurant doit être vérifié par l’équipe. Télécharge la CNI du gérant en recto et verso.</p>
+            </div>
+            @for (side of [['restoCniRecto','Recto'],['restoCniVerso','Verso']]; track side[0]) {
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold text-secondary uppercase tracking-wider">CNI restaurant — {{ side[1] }} *</label>
+                <label class="block cursor-pointer">
+                  <input type="file" accept="image/*" class="hidden" (change)="onFile(side[0],$event)"/>
+                  @if ((side[0]==='restoCniRecto' ? photoRestoCniRecto() : photoRestoCniVerso())===null) {
+                    <div class="border-2 border-dashed border-gray-200 rounded-2xl p-4 flex items-center gap-3 hover:border-primary transition-colors">
+                      <svg class="w-5 h-5 text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2"/><path d="M14 10h4M14 14h2"/></svg>
+                      <p class="text-sm font-semibold text-secondary">Photo CNI {{ side[1] }} du restaurant</p>
+                    </div>
+                  } @else {
+                    <div class="relative rounded-xl overflow-hidden h-24">
+                      <img [src]="(side[0]==='restoCniRecto' ? photoRestoCniRecto() : photoRestoCniVerso())!" class="w-full h-full object-cover"/>
+                      <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-success flex items-center justify-center">
+                        <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+                      </div>
+                    </div>
+                  }
+                </label>
+              </div>
+            }
           }
 
           <!-- Livreur — CNI recto/verso -->
@@ -192,7 +248,7 @@
             <div class="flex items-center gap-2 px-4 py-3 bg-red-50 rounded-xl"><svg class="w-4 h-4 text-red-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p class="text-sm text-red-600 font-medium">{{erreur()}}</p></div>
           }
 
-          <button (click)="onSubmit()" [disabled]="loading()" class="w-full py-3.5 rounded-full text-white font-bold text-sm border-none cursor-pointer active:scale-95 disabled:opacity-60 transition-all" style="background:#FF5A36;box-shadow:0 4px 16px rgba(255,90,54,0.35)">
+          <button (click)="onSubmit()" [disabled]="loading()" class="w-full py-3.5 rounded-full text-white font-extrabold text-sm border-none cursor-pointer active:scale-95 disabled:opacity-60 transition-all" style="background:linear-gradient(135deg,#FF5A36,#FF7A59);box-shadow:0 10px 24px rgba(255,90,54,0.3)">
             @if (loading()) { <span class="flex items-center justify-center gap-2"><svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Création...</span> }
             @else { Créer mon compte }
           </button>

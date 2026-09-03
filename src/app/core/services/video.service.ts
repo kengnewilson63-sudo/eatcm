@@ -128,7 +128,13 @@ export class VideoService {
   }
 
   ajouterVideo(video: VideoFeed): void {
-    this.videos.update(list => [video, ...list]);
+    this.videos.update(list => {
+      const exists = list.some(v => v.id === video.id);
+      if (exists) {
+        return list.map(v => v.id === video.id ? { ...v, ...video } : v);
+      }
+      return [video, ...list];
+    });
   }
 
   supprimerVideo(videoId: number): void {

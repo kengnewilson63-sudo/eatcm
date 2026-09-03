@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, signal, input, OnInit, OnDestroy, i
 import { CommonModule } from '@angular/common';
 import { TrackingService } from '../../../core/services/tracking.service';
 
-declare const google: any;
+declare const L: any;
 
 @Component({
   selector: 'app-tracking-map',
@@ -14,7 +14,6 @@ declare const google: any;
 export class TrackingMapComponent implements OnInit, OnDestroy {
   private tracking = inject(TrackingService);
 
-  // Inputs
   commandeId       = input.required<number>();
   restaurantLat    = input<number>(4.0483);
   restaurantLng    = input<number>(9.7043);
@@ -22,25 +21,22 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
   clientLat        = input<number>(4.0600);
   clientLng        = input<number>(9.7200);
 
-  // State
-  private map: any          = null;
+  private map: any = null;
   private markerLivreur: any = null;
-  private markerResto: any   = null;
-  private markerClient: any  = null;
-  private directionsRenderer: any = null;
-  private intervalSim: any   = null;
+  private markerResto: any = null;
+  private markerClient: any = null;
+  private routeLine: any = null;
+  private intervalSim: any = null;
 
   readonly positionLivreur = this.tracking.positionLivreur;
   statutLivraison = signal<'VERS_RESTAURANT' | 'VERS_CLIENT' | 'ARRIVE'>('VERS_RESTAURANT');
   distanceRestante = signal('Calcul...');
-  tempsRestant     = signal('...');
-  chargement       = signal(true);
-  erreurCarte      = signal('');
+  tempsRestant = signal('...');
+  chargement = signal(true);
+  erreurCarte = signal('');
 
-  // Simulation GPS livreur
   private simLat = 4.0483;
   private simLng = 9.7043;
-  private simStep = 0;
 
   ngOnInit(): void {
     setTimeout(() => this.initMap(), 300);
@@ -49,130 +45,145 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
 
   private async initMap(): Promise<void> {
     const el = document.getElementById('tracking-map');
-    if (!el) { this.erreurCarte.set('Élément carte introuvable.'); return; }
+    if (!el) {
+      this.erreurCarte.set('Élément carte introuvable.');
+      this.chargement.set(false);
+      return;
+    }
+
+    if (typeof L === 'undefined') {
+      this.erreurCarte.set('Leaflet et OpenStreetMap sont indisponibles dans ce navigateur.');
+      this.chargement.set(false);
+      return;
+    }
 
     try {
-      const { Map }                   = await google.maps.importLibrary('maps');
-      const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
-      const { DirectionsService, DirectionsRenderer } = await google.maps.importLibrary('routes');
-
-      this.map = new Map(el, {
-        center: { lat: this.restaurantLat(), lng: this.restaurantLng() },
-        zoom: 14,
-        mapId: 'eatscm_tracking',
+      this.map = L.map('tracking-map', {
         zoomControl: true,
-        streetViewControl: false,
-        mapTypeControl: false,
-        fullscreenControl: false,
-      });
+        attributionControl: false,
+        scrollWheelZoom: true,
+      }).setView([this.restaurantLat(), this.restaurantLng()], 14);
 
-      // Marker restaurant
-      const restoEl = document.createElement('div');
-      restoEl.innerHTML = `<div style="background:#FF5A36;border:3px solid white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,90,54,0.4);font-size:18px">🍽️</div>`;
-      this.markerResto = new AdvancedMarkerElement({
-        map: this.map,
-        position: { lat: this.restaurantLat(), lng: this.restaurantLng() },
-        title: this.restaurantNom(),
-        content: restoEl,
-      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap',
+      }).addTo(this.map);
 
-      // Marker client
-      const clientEl = document.createElement('div');
-      clientEl.innerHTML = `<div style="background:#3B82F6;border:3px solid white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(59,130,246,0.4);font-size:18px">🏠</div>`;
-      this.markerClient = new AdvancedMarkerElement({
-        map: this.map,
-        position: { lat: this.clientLat(), lng: this.clientLng() },
-        title: 'Votre adresse',
-        content: clientEl,
-      });
+      this.markerResto = L.marker([this.restaurantLat(), this.restaurantLng()], {
+        icon: this.creerIcone('#FF5A36', '🍽️'),
+      }).addTo(this.map);
 
-      // Marker livreur
-      const livreurEl = document.createElement('div');
-      livreurEl.className = 'livreur-marker';
-      livreurEl.innerHTML = `<div style="background:#22C55E;border:3px solid white;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(34,197,94,0.5);font-size:22px;animation:pulse 1.5s ease-in-out infinite">🛵</div>`;
-      this.markerLivreur = new AdvancedMarkerElement({
-        map: this.map,
-        position: { lat: this.simLat, lng: this.simLng },
-        title: 'Votre livreur',
-        content: livreurEl,
-      });
+      this.markerClient = L.marker([this.clientLat(), this.clientLng()], {
+        icon: this.creerIcone('#3B82F6', '🏠'),
+      }).addTo(this.map);
 
-      // Directions
-      this.directionsRenderer = new DirectionsRenderer({
-        suppressMarkers: true,
-        polylineOptions: { strokeColor: '#FF5A36', strokeWeight: 4, strokeOpacity: 0.7 },
-      });
-      this.directionsRenderer.setMap(this.map);
+      this.markerLivreur = L.marker([this.simLat, this.simLng], {
+        icon: this.creerIcone('#22C55E', '🛵', true),
+      }).addTo(this.map);
+
+      this.routeLine = L.polyline([
+        [this.simLat, this.simLng],
+        [this.restaurantLat(), this.restaurantLng()],
+      ], {
+        color: '#FF5A36',
+        weight: 4,
+        opacity: 0.8,
+      }).addTo(this.map);
 
       this.chargement.set(false);
-      this.calculerItineraire(DirectionsService);
-
+      this.calculerItineraire();
     } catch (err) {
-      this.erreurCarte.set('Impossible de charger la carte. Vérifie ta clé Google Maps.');
+      console.error('Leaflet tracking init error:', err);
+      this.erreurCarte.set('Impossible de charger la carte OpenStreetMap.');
       this.chargement.set(false);
     }
   }
 
-  private async calculerItineraire(DirectionsService: any): Promise<void> {
-    try {
-      const svc = new DirectionsService();
-      const target = this.statutLivraison() === 'VERS_RESTAURANT'
-        ? { lat: this.restaurantLat(), lng: this.restaurantLng() }
-        : { lat: this.clientLat(),     lng: this.clientLng()     };
-
-      const result = await svc.route({
-        origin:      { lat: this.simLat, lng: this.simLng },
-        destination: target,
-        travelMode:  'DRIVING',
-      });
-
-      if (this.directionsRenderer) this.directionsRenderer.setDirections(result);
-
-      const leg = result.routes[0]?.legs[0];
-      if (leg) {
-        this.distanceRestante.set(leg.distance?.text ?? '—');
-        this.tempsRestant.set(leg.duration?.text ?? '—');
-      }
-    } catch { /* Google Maps non dispo */ }
+  private creerIcone(couleur: string, emoji: string, pulse = false): any {
+    const pulseClass = pulse ? 'livreur-marker' : '';
+    return L.divIcon({
+      className: '',
+      html: `
+        <div class="${pulseClass}" style="
+          width: 42px;
+          height: 42px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: ${couleur};
+          border: 3px solid white;
+          box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+          font-size: 20px;
+          transform: translateY(-4px);
+        ">${emoji}</div>
+      `,
+      iconSize: [42, 42],
+      iconAnchor: [21, 41],
+      popupAnchor: [0, -30],
+    });
   }
 
-  // Simule le mouvement du livreur vers le restaurant puis le client
+  private calculerItineraire(): void {
+    if (!this.map || !this.routeLine) {
+      return;
+    }
+
+    const target = this.statutLivraison() === 'VERS_RESTAURANT'
+      ? [this.restaurantLat(), this.restaurantLng()]
+      : [this.clientLat(), this.clientLng()];
+
+    this.routeLine.setLatLngs([
+      [this.simLat, this.simLng],
+      target,
+    ]);
+
+    const distanceKm = this.calculerDist(this.simLat, this.simLng, target[0], target[1]);
+    const minutes = Math.max(1, Math.ceil((distanceKm * 60) / 18));
+
+    if (distanceKm < 1) {
+      this.distanceRestante.set(`${Math.round(distanceKm * 1000)} m`);
+    } else {
+      this.distanceRestante.set(`${distanceKm.toFixed(1)} km`);
+    }
+
+    this.tempsRestant.set(`${minutes} min`);
+  }
+
   private demarrerSimulation(): void {
     this.intervalSim = setInterval(() => {
-      this.simStep++;
-
       const cible = this.statutLivraison() === 'VERS_RESTAURANT' || this.statutLivraison() === 'VERS_CLIENT'
         ? this.statutLivraison() === 'VERS_RESTAURANT'
           ? { lat: this.restaurantLat(), lng: this.restaurantLng() }
-          : { lat: this.clientLat(),     lng: this.clientLng()     }
+          : { lat: this.clientLat(), lng: this.clientLng() }
         : null;
 
       if (!cible) return;
 
-      // Avance de 10% vers la cible à chaque tick
       this.simLat += (cible.lat - this.simLat) * 0.12;
       this.simLng += (cible.lng - this.simLng) * 0.12;
 
-      // Met à jour le marker livreur
       if (this.markerLivreur) {
-        this.markerLivreur.position = { lat: this.simLat, lng: this.simLng };
+        this.markerLivreur.setLatLng([this.simLat, this.simLng]);
       }
 
-      // Signal position
+      if (this.map) {
+        this.map.panTo([this.simLat, this.simLng], { animate: true, duration: 0.5 });
+      }
+
       this.tracking.positionLivreur.set({
         latitude: this.simLat,
         longitude: this.simLng,
         timestamp: Date.now(),
       });
 
-      // Vérifie si arrivé au restaurant
       const distResto = this.calculerDist(this.simLat, this.simLng, this.restaurantLat(), this.restaurantLng());
       const distClient = this.calculerDist(this.simLat, this.simLng, this.clientLat(), this.clientLng());
 
       if (this.statutLivraison() === 'VERS_RESTAURANT' && distResto < 0.05) {
         this.statutLivraison.set('VERS_CLIENT');
         this.distanceRestante.set('Récupération...');
-        setTimeout(() => this.distanceRestante.set(`${(distClient * 1000).toFixed(0)}m`), 1500);
+        setTimeout(() => this.distanceRestante.set(`${(distClient * 1000).toFixed(0)} m`), 1500);
       }
 
       if (this.statutLivraison() === 'VERS_CLIENT' && distClient < 0.03) {
@@ -182,6 +193,7 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
         clearInterval(this.intervalSim);
       }
 
+      this.calculerItineraire();
     }, 2000);
   }
 
@@ -189,19 +201,22 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   centrerSurLivreur(): void {
     if (this.map && this.simLat) {
-      this.map.panTo({ lat: this.simLat, lng: this.simLng });
-      this.map.setZoom(16);
+      this.map.flyTo([this.simLat, this.simLng], 15, { duration: 0.8 });
     }
   }
 
   ngOnDestroy(): void {
     if (this.intervalSim) clearInterval(this.intervalSim);
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+    }
     this.tracking.positionLivreur.set(null);
   }
 }

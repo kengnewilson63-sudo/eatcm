@@ -9,7 +9,7 @@ import { CommandeService } from '../../core/services/commande.service';
 import { VideoService, Commentaire, VideoFeed } from '../../core/services/video.service';
 import { RestaurantService, Restaurant } from '../../core/services/restaurant.service';
 import { PlatService } from '../../core/services/plat.service';
-import { Plat } from '../../core/models'; // 🔥 CORRIGÉ : import depuis models
+import { Plat } from '../../core/models';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -95,7 +95,7 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
       likes: plat.likes || 0,
       commentaires: [],
       partages: 0,
-      videoUrl: plat.videoUrl || '',
+      videoUrl: plat.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
       videoType: 'upload',
       liked: false,
     };

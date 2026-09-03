@@ -96,9 +96,19 @@
                       : 'bg-gray-100 text-gray-600'">
               {{ plat.disponible ? '✓ Disponible' : 'Épuisé' }}
             </button>
+            <button (click)="ouvrirEdition(plat)"
+                    title="Modifier ce plat"
+                    class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center
+                           justify-center border-none cursor-pointer hover:bg-blue-100 transition-colors">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
             <button (click)="supprimerPlat(plat.id)"
+                    title="Supprimer ce plat"
                     class="w-9 h-9 rounded-xl bg-red-50 text-red-500 flex items-center
-                           justify-center border-none cursor-pointer hover:bg-red-100">
+                           justify-center border-none cursor-pointer hover:bg-red-100 transition-colors">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6l-1 14H6L5 6"/>
@@ -360,6 +370,141 @@
             } @else {
               {{ videoPreview() ? '🎬 Publier avec vidéo' : '✅ Ajouter au menu' }}
             }
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- MODAL ÉDITION PLAT -->
+@if (modalEdition()) {
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center
+              justify-center p-0 md:p-4"
+       (click)="modalEdition.set(false)"
+       style="animation:fadeIn 0.2s ease-out">
+    <div class="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl
+                max-h-[95vh] overflow-y-auto"
+          (click)="$event.stopPropagation()"
+          style="animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)">
+
+      <div class="flex justify-center pt-3 pb-1 md:hidden">
+        <div class="w-10 h-1 rounded-full bg-gray-200"></div>
+      </div>
+
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div>
+          <h3 class="font-extrabold text-secondary">Modifier le plat</h3>
+          <p class="text-xs text-muted mt-0.5">{{ platEnEdition()?.nom }}</p>
+        </div>
+        <button (click)="modalEdition.set(false)"
+                class="w-8 h-8 rounded-full bg-gray-100 flex items-center
+                       justify-center border-none cursor-pointer">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+
+        <!-- Nom -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">
+            Nom du plat *
+          </label>
+          <input type="text" placeholder="Ex: Ndolé au poisson fumé"
+                 [value]="nouveauNom()" (input)="onField('nom',$event)"
+                 class="input-field"/>
+        </div>
+
+        <!-- Description -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">
+            Description
+          </label>
+          <textarea placeholder="Décris ton plat..."
+                    [value]="nouvelleDescription()" (input)="onField('description',$event)"
+                    rows="2" class="input-field resize-none"></textarea>
+        </div>
+
+        <!-- Prix + Temps -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">
+              Prix (FCFA) *
+            </label>
+            <input type="number" placeholder="3500" min="0"
+                   [value]="nouveauPrix()" (input)="onField('prix',$event)"
+                   class="input-field"/>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-secondary uppercase tracking-wider">
+              Temps (min)
+            </label>
+            <input type="number" placeholder="15" min="1"
+                   [value]="nouveauTemps()" (input)="onField('temps',$event)"
+                   class="input-field"/>
+          </div>
+        </div>
+
+        <!-- Catégorie -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">
+            Catégorie
+          </label>
+          <select [value]="nouvelleCategorie()" (change)="onField('categorie',$event)"
+                  class="input-field appearance-none cursor-pointer">
+            @for (c of categories; track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Populaire -->
+        <label class="flex items-center gap-3 cursor-pointer select-none py-1">
+          <input type="checkbox" [checked]="estPopulaire()" (change)="onField('populaire', $event)"
+                 class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer">
+          <span class="text-sm font-semibold text-secondary">Mettre en avant (Badge Populaire ❤️)</span>
+        </label>
+
+        <!-- Photo du plat -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-secondary uppercase tracking-wider">
+            Photo du plat
+          </label>
+          <label class="block cursor-pointer">
+            <input type="file" accept="image/*" class="hidden" (change)="onImage($event)"/>
+            @if (imageSelectionnee()) {
+              <div class="relative rounded-xl overflow-hidden h-32">
+                <img [src]="imageSelectionnee()!" class="w-full h-full object-cover"/>
+                <div class="absolute bottom-2 right-2 px-3 py-1 rounded-lg
+                             bg-black/70 text-white text-xs font-semibold">
+                  Changer l'image
+                </div>
+              </div>
+            } @else {
+              <div class="border-2 border-dashed border-gray-200 rounded-xl p-4
+                          flex items-center gap-3 hover:border-primary transition-colors">
+                <p class="text-sm font-semibold text-secondary">Ajouter une photo</p>
+              </div>
+            }
+          </label>
+        </div>
+
+        <!-- Boutons -->
+        <div class="flex gap-3 pt-2">
+          <button (click)="modalEdition.set(false)"
+                  class="flex-1 py-3.5 rounded-2xl font-bold text-sm border-2
+                         border-gray-200 text-secondary bg-white cursor-pointer">
+            Annuler
+          </button>
+          <button (click)="sauvegarderEdition()"
+                  [disabled]="!nouveauNom() || !nouveauPrix()"
+                  class="flex-1 py-3.5 rounded-2xl font-bold text-sm text-white
+                         border-none cursor-pointer active:scale-95 disabled:opacity-50"
+                  style="background:#FF5A36">
+            💾 Enregistrer
           </button>
         </div>
       </div>

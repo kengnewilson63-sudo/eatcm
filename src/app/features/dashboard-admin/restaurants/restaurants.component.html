@@ -1,9 +1,9 @@
 <div class="page-enter space-y-5">
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="dashboard-card"><p class="text-xs font-bold text-muted uppercase mb-1">Total</p><p class="text-2xl font-extrabold text-secondary">{{stats.total}}</p></div>
-    <div class="dashboard-card border-l-4 border-success"><p class="text-xs font-bold text-muted uppercase mb-1">Actifs</p><p class="text-2xl font-extrabold text-success">{{stats.actifs}}</p></div>
-    <div class="dashboard-card border-l-4 border-amber-400"><p class="text-xs font-bold text-muted uppercase mb-1">En attente</p><p class="text-2xl font-extrabold text-amber-500">{{stats.enAttente}}</p></div>
-    <div class="dashboard-card border-l-4 border-primary"><p class="text-xs font-bold text-muted uppercase mb-1">Commissions</p><p class="text-xl font-extrabold text-primary">{{stats.totalCommissions | number}} FCFA</p></div>
+    <div class="dashboard-card"><p class="text-xs font-bold text-muted uppercase mb-1">Total</p><p class="text-2xl font-extrabold text-secondary">{{stats().total}}</p></div>
+    <div class="dashboard-card border-l-4 border-success"><p class="text-xs font-bold text-muted uppercase mb-1">Actifs</p><p class="text-2xl font-extrabold text-success">{{stats().actifs}}</p></div>
+    <div class="dashboard-card border-l-4 border-amber-400"><p class="text-xs font-bold text-muted uppercase mb-1">En attente</p><p class="text-2xl font-extrabold text-amber-500">{{stats().enAttente}}</p></div>
+    <div class="dashboard-card border-l-4 border-primary"><p class="text-xs font-bold text-muted uppercase mb-1">Commissions</p><p class="text-xl font-extrabold text-primary">{{stats().totalCommissions | number}} FCFA</p></div>
   </div>
   <div class="space-y-3">
     @for (r of restaurants(); track r.id) {

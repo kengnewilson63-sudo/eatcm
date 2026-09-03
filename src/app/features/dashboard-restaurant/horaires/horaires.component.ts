@@ -1,5 +1,7 @@
-import { Component, ChangeDetectionStrategy, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RestaurantService } from '../../../core/services/restaurant.service';
+import { NotificationService } from '../../../core/services/notification.service';
 
 interface HoraireJour {
   jour: string;
@@ -9,28 +11,56 @@ interface HoraireJour {
   ferme: boolean;
 }
 
+const HORAIRES_DEFAUT: HoraireJour[] = [
+  { jour: 'Lundi',    jourCourt: 'Lun', ouverture: '08:00', fermeture: '22:00', ferme: false },
+  { jour: 'Mardi',    jourCourt: 'Mar', ouverture: '08:00', fermeture: '22:00', ferme: false },
+  { jour: 'Mercredi', jourCourt: 'Mer', ouverture: '08:00', fermeture: '22:00', ferme: false },
+  { jour: 'Jeudi',    jourCourt: 'Jeu', ouverture: '08:00', fermeture: '22:00', ferme: false },
+  { jour: 'Vendredi', jourCourt: 'Ven', ouverture: '08:00', fermeture: '23:00', ferme: false },
+  { jour: 'Samedi',   jourCourt: 'Sam', ouverture: '09:00', fermeture: '23:00', ferme: false },
+  { jour: 'Dimanche', jourCourt: 'Dim', ouverture: '10:00', fermeture: '20:00', ferme: true  },
+];
+
 @Component({
   selector: 'app-horaires',
   imports: [CommonModule],
   templateUrl: './horaires.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class HorairesComponent {
+export class HorairesComponent implements OnInit {
+  private restoSvc = inject(RestaurantService);
+  private notif = inject(NotificationService);
 
   // Toggle ouvert/fermé maintenant (override manuel)
   ouvertMaintenant = signal(true);
   saveSuccess      = signal(false);
   loading          = signal(false);
+  horaires = signal<HoraireJour[]>(HORAIRES_DEFAUT);
 
-  horaires = signal<HoraireJour[]>([
-    { jour: 'Lundi',    jourCourt: 'Lun', ouverture: '08:00', fermeture: '22:00', ferme: false },
-    { jour: 'Mardi',    jourCourt: 'Mar', ouverture: '08:00', fermeture: '22:00', ferme: false },
-    { jour: 'Mercredi', jourCourt: 'Mer', ouverture: '08:00', fermeture: '22:00', ferme: false },
-    { jour: 'Jeudi',    jourCourt: 'Jeu', ouverture: '08:00', fermeture: '22:00', ferme: false },
-    { jour: 'Vendredi', jourCourt: 'Ven', ouverture: '08:00', fermeture: '23:00', ferme: false },
-    { jour: 'Samedi',   jourCourt: 'Sam', ouverture: '09:00', fermeture: '23:00', ferme: false },
-    { jour: 'Dimanche', jourCourt: 'Dim', ouverture: '10:00', fermeture: '20:00', ferme: true  },
-  ]);
+  ngOnInit(): void {
+    this.chargerRestaurant();
+  }
+
+  private chargerRestaurant(): void {
+    this.restoSvc.getMonRestaurant().subscribe({
+      next: (resto) => {
+        this.ouvertMaintenant.set(resto.ouvert ?? true);
+        if (resto.horairesJson) {
+          try {
+            const parsed = JSON.parse(resto.horairesJson);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              this.horaires.set(parsed);
+            }
+          } catch (e) {
+            console.error('Erreur parsing horairesJson:', e);
+          }
+        }
+      },
+      error: (err) => {
+        console.error('Erreur chargement restaurant pour horaires:', err);
+      }
+    });
+  }
 
   // Calcule si le restaurant est ouvert selon les horaires
   readonly estOuvertAutomatique = computed(() => {
@@ -98,18 +128,36 @@ export class HorairesComponent {
   // Sauvegarder les horaires
   sauvegarder(): void {
     this.loading.set(true);
-    // En prod → PATCH /api/restaurant/horaires { horaires: this.horaires() }
-    setTimeout(() => {
-      this.loading.set(false);
-      this.saveSuccess.set(true);
-      setTimeout(() => this.saveSuccess.set(false), 3000);
-    }, 800);
+    const json = JSON.stringify(this.horaires());
+    this.restoSvc.updateHoraires(json).subscribe({
+      next: () => {
+        this.loading.set(false);
+        this.saveSuccess.set(true);
+        this.notif.success('Horaires mis à jour avec succès !');
+        setTimeout(() => this.saveSuccess.set(false), 3000);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.notif.error('Erreur lors de la sauvegarde des horaires.');
+        console.error(err);
+      }
+    });
   }
 
   // Toggle ouvert/fermé maintenant (override immédiat)
   toggleOuvertMaintenant(): void {
-    this.ouvertMaintenant.update(v => !v);
-    // En prod → PATCH /api/restaurant/statut { ouvert: this.ouvertMaintenant() }
+    const nouveauStatut = !this.ouvertMaintenant();
+    this.ouvertMaintenant.set(nouveauStatut);
+    this.restoSvc.toggleStatut(nouveauStatut).subscribe({
+      next: () => {
+        this.notif.info(nouveauStatut ? 'Votre restaurant est maintenant ouvert !' : 'Votre restaurant est maintenant fermé.');
+      },
+      error: (err) => {
+        this.ouvertMaintenant.set(!nouveauStatut); // rollback
+        this.notif.error('Erreur lors du changement de statut.');
+        console.error(err);
+      }
+    });
   }
 
   heuresRestantes(): string {

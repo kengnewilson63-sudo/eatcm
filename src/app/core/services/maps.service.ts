@@ -22,6 +22,7 @@ export class MapsService {
   erreur               = signal('');
   carteChargee         = signal(false);
   gpsAutorise          = signal<boolean | null>(null);
+  precisionGps         = signal<number | null>(null);
 
   // ══ INIT CARTE LEAFLET ════════════════════════════════════
   async initMap(elementId: string, lat = 4.0483, lng = 9.7043): Promise<void> {
@@ -105,8 +106,8 @@ export class MapsService {
 
       this.carteChargee.set(true);
 
-      // Géocode la position initiale
-      await this.geocoderNominatim(lat, lng);
+      // Ne pas forcer une fausse adresse globale au démarrage.
+      // L'utilisateur doit soit utiliser le GPS, soit cliquer/glisser sur la carte.
 
     } catch (err) {
       console.error('Leaflet init error:', err);
@@ -119,21 +120,28 @@ export class MapsService {
     this.chargement.set(true);
     this.erreur.set('');
 
+    const fallbackDouala = { lat: 4.0483, lng: 9.7043 };
+
     if (!navigator.geolocation) {
+      this.gpsAutorise.set(false);
+      this.precisionGps.set(null);
+      if (this.map) this.map.setView([fallbackDouala.lat, fallbackDouala.lng], 13);
+      if (this.marker) this.marker.setLatLng([fallbackDouala.lat, fallbackDouala.lng]);
       this.erreur.set('gps_non_supporte');
       this.chargement.set(false);
-      this.gpsAutorise.set(false);
       return;
     }
 
-    // Vérifie permission
     if (navigator.permissions) {
       try {
         const perm = await navigator.permissions.query({ name: 'geolocation' });
         if (perm.state === 'denied') {
+          this.gpsAutorise.set(false);
+          this.precisionGps.set(null);
+          if (this.map) this.map.setView([fallbackDouala.lat, fallbackDouala.lng], 13);
+          if (this.marker) this.marker.setLatLng([fallbackDouala.lat, fallbackDouala.lng]);
           this.erreur.set('gps_refuse');
           this.chargement.set(false);
-          this.gpsAutorise.set(false);
           return;
         }
       } catch {}
@@ -145,36 +153,66 @@ export class MapsService {
           this.gpsAutorise.set(true);
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+          const precision = pos.coords.accuracy ?? 0;
+          this.precisionGps.set(precision);
 
-          // Centre la carte Leaflet
+          if (precision > 1500) {
+            this.erreur.set('gps_approximatif');
+          } else {
+            this.erreur.set('');
+          }
+
           if (this.map) {
             this.map.setView([lat, lng], 17);
           }
 
-          // Déplace le marker
           if (this.marker) {
             this.marker.setLatLng([lat, lng]);
           }
 
-          await this.geocoderNominatim(lat, lng);
+          try {
+            await this.geocoderNominatim(lat, lng);
+          } catch {
+            this.positionSelectionnee.set({
+              latitude: lat,
+              longitude: lng,
+              adresse: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+              quartier: 'Position actuelle',
+              ville: 'Douala',
+            });
+          }
+
           this.chargement.set(false);
           resolve();
         },
         (err) => {
           this.gpsAutorise.set(false);
-          this.chargement.set(false);
+          this.precisionGps.set(null);
+          if (this.map) this.map.setView([fallbackDouala.lat, fallbackDouala.lng], 13);
+          if (this.marker) this.marker.setLatLng([fallbackDouala.lat, fallbackDouala.lng]);
+
           switch (err.code) {
             case 1: this.erreur.set('gps_refuse');       break;
             case 2: this.erreur.set('gps_indisponible'); break;
             case 3: this.erreur.set('gps_timeout');      break;
             default: this.erreur.set('gps_erreur');
           }
+
+          this.positionSelectionnee.set({
+            latitude: fallbackDouala.lat,
+            longitude: fallbackDouala.lng,
+            adresse: 'Douala - position de secours',
+            quartier: 'Centre-ville',
+            ville: 'Douala',
+          });
+
+          this.chargement.set(false);
           resolve();
         },
         {
           enableHighAccuracy: true,
-          timeout:            15000,
-          maximumAge:         0,
+          timeout:            20000,
+          maximumAge:         60000,
         }
       );
     });
@@ -241,6 +279,7 @@ export class MapsService {
       'gps_indisponible':  '📡 Signal GPS faible — essaie dehors ou saisis manuellement',
       'gps_timeout':       '⏱️ GPS trop lent — réessaie ou saisis l\'adresse manuellement',
       'gps_erreur':        '❌ Erreur GPS — utilise le mode Manuel',
+      'gps_approximatif':  '📍 Position approximative — déplace le marqueur pour ajuster précisément',
       'carte_indisponible':'🗺️ Carte indisponible — utilise le mode Manuel',
       'element_introuvable':'❌ Erreur d\'affichage',
       'erreur_init_carte': '❌ Impossible de charger la carte',

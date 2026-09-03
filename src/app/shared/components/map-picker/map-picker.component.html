@@ -1,7 +1,11 @@
 <div class="space-y-3">
+  <div class="flex items-center justify-between px-1">
+    <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Carte de livraison</p>
+    <span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">OpenStreetMap</span>
+  </div>
 
-  <!-- Carte Google Maps -->
-  <div class="rounded-2xl overflow-hidden border border-gray-100 relative"
+  <!-- Carte OpenStreetMap -->
+  <div class="rounded-2xl overflow-hidden border border-gray-100 relative shadow-sm"
        style="height:260px">
 
     <!-- Carte -->
@@ -19,8 +23,8 @@
       </div>
     }
 
-    <!-- Overlay si Google Maps indisponible -->
-    @if (erreur() === 'google_maps_indisponible') {
+    <!-- Overlay si la carte est indisponible -->
+    @if (erreur() === 'carte_indisponible' || erreur() === 'erreur_init_carte') {
       <div class="absolute inset-0 bg-gray-50 flex flex-col items-center
                   justify-center rounded-2xl p-4 text-center">
         <p class="text-3xl mb-2">🗺️</p>
@@ -33,10 +37,10 @@
   <!-- Bouton GPS -->
   <button (click)="utiliserMaPosition()"
           [disabled]="chargement()"
-          class="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+          class="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl
                  border-2 border-primary/20 bg-primary/5 text-primary font-bold
                  text-sm cursor-pointer hover:bg-primary/10 transition-all
-                 active:scale-95 disabled:opacity-60">
+                 active:scale-95 disabled:opacity-60 shadow-sm">
     @if (chargement()) {
       <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2">

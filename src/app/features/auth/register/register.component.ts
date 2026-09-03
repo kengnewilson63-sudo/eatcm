@@ -1,8 +1,8 @@
 import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
-import { RouterLink, Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
-import { Role, User } from '../../../core/models';
+import { Role } from '../../../core/models';
 
 @Component({
   selector: 'app-register',
@@ -11,8 +11,7 @@ import { Role, User } from '../../../core/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegisterComponent implements OnInit {
-  private auth   = inject(AuthService);
-  private router = inject(Router);
+  private auth = inject(AuthService);
 
   // ========== CONFIG ZONE ==========
   readonly VILLES_AUTORISEES = ['Douala'];
@@ -28,6 +27,7 @@ export class RegisterComponent implements OnInit {
   villeDetectee  = signal<string | null>(null);
   villeAutorisee = signal(true);
   gpsLoading     = signal(false);
+  gpsRefusee     = signal(false);
 
   // Champs formulaire
   prenom        = signal('');
@@ -40,6 +40,8 @@ export class RegisterComponent implements OnInit {
   photoFacade   = signal<string | null>(null);
   photoCniRecto = signal<string | null>(null);
   photoCniVerso = signal<string | null>(null);
+  photoRestoCniRecto = signal<string | null>(null);
+  photoRestoCniVerso = signal<string | null>(null);
 
   roles: { value: Role; label: string; emoji: string; desc: string }[] = [
     { value: 'CLIENT',     label: 'Client',     emoji: '🛒', desc: 'Je veux commander des repas' },
@@ -48,45 +50,55 @@ export class RegisterComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.gpsLoading.set(true);
-    setTimeout(() => {
-      this.villeDetectee.set('Yaoundé');
-      this.villeAutorisee.set(false);
-      this.gpsLoading.set(false);
-    }, 2000);
+    this.detecterVille();
   }
 
   // ========== GPS / ZONE ==========
+  utiliserDoualaParDefaut(): void {
+    this.villeDetectee.set('Douala');
+    this.villeAutorisee.set(true);
+    this.gpsLoading.set(false);
+    this.gpsRefusee.set(true);
+  }
+
   async detecterVille(): Promise<void> {
     if (!navigator.geolocation) {
-      this.villeAutorisee.set(true);
+      this.utiliserDoualaParDefaut();
       return;
     }
+
     this.gpsLoading.set(true);
+    this.gpsRefusee.set(false);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`
+            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=fr`
           );
+          if (!res.ok) throw new Error('Nominatim unavailable');
+
           const data = await res.json();
-          const ville = data.address?.city || data.address?.town || data.address?.state || '';
+          const ville = data.address?.city || data.address?.town || data.address?.state || 'Douala';
           this.villeDetectee.set(ville);
           const autorisee = this.VILLES_AUTORISEES.some(v =>
             ville.toLowerCase().includes(v.toLowerCase())
           );
           this.villeAutorisee.set(autorisee);
+          this.gpsRefusee.set(false);
         } catch {
-          this.villeAutorisee.set(true);
+          this.utiliserDoualaParDefaut();
         } finally {
           this.gpsLoading.set(false);
         }
       },
-      () => {
-        this.villeAutorisee.set(true);
+      (error) => {
+        console.warn('GPS non disponible:', error);
+        this.utiliserDoualaParDefaut();
+        this.gpsRefusee.set(true);
         this.gpsLoading.set(false);
       },
-      { timeout: 10000, enableHighAccuracy: false }
+      { timeout: 20000, enableHighAccuracy: true, maximumAge: 60000 }
     );
   }
 
@@ -146,8 +158,30 @@ export class RegisterComponent implements OnInit {
       if (field === 'facade')   this.photoFacade.set(res);
       if (field === 'cniRecto') this.photoCniRecto.set(res);
       if (field === 'cniVerso') this.photoCniVerso.set(res);
+      if (field === 'restoCniRecto') this.photoRestoCniRecto.set(res);
+      if (field === 'restoCniVerso') this.photoRestoCniVerso.set(res);
     };
     reader.readAsDataURL(file);
+  }
+
+  private validateRoleSpecificFields(): string | null {
+    if (this.role() === 'RESTAURANT') {
+      if (!this.nomResto().trim()) return 'Le nom du restaurant est obligatoire.';
+      if (!this.numeroMoMo().trim()) return 'Le numéro Mobile Money du restaurant est obligatoire.';
+      if (this.numeroMoMo().length !== 9) return 'Le numéro Mobile Money doit faire exactement 9 chiffres.';
+      if (!this.photoFacade()) return 'La photo de la façade du restaurant est obligatoire.';
+      if (!this.photoRestoCniRecto() || !this.photoRestoCniVerso()) {
+        return 'Les deux photos de la CNI du restaurant sont obligatoires.';
+      }
+    }
+
+    if (this.role() === 'LIVREUR') {
+      if (!this.photoCniRecto() || !this.photoCniVerso()) {
+        return 'Les deux photos de la CNI du livreur sont obligatoires.';
+      }
+    }
+
+    return null;
   }
 
   // ========== SUBMIT ==========
@@ -170,8 +204,11 @@ export class RegisterComponent implements OnInit {
     if (this.motDePasse().length < 6) {
       this.erreur.set('Le mot de passe doit faire au moins 6 caractères.'); return;
     }
-    if (this.role() === 'RESTAURANT' && !this.nomResto().trim()) {
-      this.erreur.set('Le nom du restaurant est obligatoire.'); return;
+
+    const roleError = this.validateRoleSpecificFields();
+    if (roleError) {
+      this.erreur.set(roleError);
+      return;
     }
 
     this.loading.set(true);
@@ -185,19 +222,18 @@ export class RegisterComponent implements OnInit {
       motDePasse: this.motDePasse(),
       role:       this.role(),
       ...(this.role() === 'RESTAURANT' && { nomRestaurant: this.nomResto().trim() }),
-      ...(this.numeroMoMo().trim() && { numeroMoMo: this.numeroMoMo().trim() }),
+      ...(this.role() === 'RESTAURANT' && this.photoFacade() && { photoFacade: this.photoFacade() }),
+      ...(this.role() === 'RESTAURANT' && this.photoRestoCniRecto() && { cniRecto: this.photoRestoCniRecto() }),
+      ...(this.role() === 'RESTAURANT' && this.photoRestoCniVerso() && { cniVerso: this.photoRestoCniVerso() }),
+      ...(this.role() === 'LIVREUR' && this.photoCniRecto() && { cniRecto: this.photoCniRecto() }),
+      ...(this.role() === 'LIVREUR' && this.photoCniVerso() && { cniVerso: this.photoCniVerso() }),
+      ...(this.numeroMoMo().trim() && { numeroMoMo: `+237${this.numeroMoMo().trim()}` }),
     };
 
     this.auth.register(registerData).subscribe({
       next: (res) => {
         this.loading.set(false);
-        const dest: Record<Role, string> = {
-          CLIENT:     '/home',
-          RESTAURANT: '/dashboard/restaurant',
-          LIVREUR:    '/dashboard/livreur',
-          ADMIN:      '/home',
-        };
-        this.router.navigate([dest[this.role()]]);
+        this.auth.redirectAfterAuth(res.user);
       },
       error: (err) => {
         this.loading.set(false);

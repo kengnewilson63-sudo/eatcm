@@ -66,53 +66,59 @@
       <h2 class="text-lg font-extrabold text-secondary">Restaurants populaires</h2>
       <a routerLink="/search" class="text-sm font-semibold text-primary no-underline hover:underline">Voir tout</a>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      @for (resto of restaurantsFiltres(); track resto.id) {
-        <a [routerLink]="['/restaurant', resto.id]" class="restaurant-card group no-underline block">
-          <div class="relative h-44 overflow-hidden">
-            <img [src]="resto.image" [alt]="resto.nom" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"/>
-            <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.5) 0%,transparent 60%)"></div>
-            @if (resto.promo) {
-              <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold" [class]="resto.promo==='Nouveau' ? 'bg-secondary text-white' : 'bg-accent text-secondary'">{{ resto.promo }}</span>
-            }
-            <!-- Certifié -->
-            @if (resto.certifie) {
-              <span class="absolute top-3 right-10 w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-sm">
-                <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-              </span>
-            }
-            <!-- Bouton favori -->
-            <button (click)="toggleFavori(resto.id, $event)"
-                    class="absolute top-3 right-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow-sm border-none cursor-pointer active:scale-90 transition-transform">
-              <svg class="w-4 h-4 transition-colors" [class]="favoris.isFavori(resto.id) ? 'text-red-500 fill-red-500' : 'text-gray-400 fill-none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            </button>
-            <!-- Statut ouvert/fermé -->
-            <div class="absolute bottom-3 left-3 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full flex-shrink-0" [class]="resto.ouvert ? 'bg-success' : 'bg-gray-400'"></span>
-              <span class="text-white text-xs font-semibold">{{ resto.ouvert ? 'Ouvert' : 'Fermé' }}</span>
-            </div>
-          </div>
-          <div class="p-4">
-            <div class="flex items-start justify-between gap-2 mb-1">
-              <h3 class="font-bold text-secondary text-base leading-tight">{{ resto.nom }}</h3>
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                <span class="text-xs font-bold text-secondary">{{ resto.note }}</span>
-                <span class="text-xs text-muted">({{ resto.totalAvis }})</span>
+
+    @if (!loading() && !hasResults()) {
+      <div class="rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center">
+        <p class="text-3xl mb-2">🍽️</p>
+        <p class="font-bold text-secondary mb-1">Aucun restaurant trouvé</p>
+        <p class="text-sm text-muted">Essaie une autre catégorie ou recharge la page.</p>
+      </div>
+    } @else {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (resto of restaurantsFiltres(); track resto.id) {
+          <a [routerLink]="['/restaurant', resto.id]" class="restaurant-card group no-underline block">
+            <div class="relative h-44 overflow-hidden">
+              <img [src]="resto.image" [alt]="resto.nom" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"/>
+              <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.5) 0%,transparent 60%)"></div>
+              @if (resto.promo) {
+                <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold" [class]="resto.promo==='Nouveau' ? 'bg-secondary text-white' : 'bg-accent text-secondary'">{{ resto.promo }}</span>
+              }
+              @if (resto.certifie) {
+                <span class="absolute top-3 right-10 w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-sm">
+                  <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </span>
+              }
+              <button (click)="toggleFavori(resto.id, $event)"
+                      class="absolute top-3 right-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow-sm border-none cursor-pointer active:scale-90 transition-transform">
+                <svg class="w-4 h-4 transition-colors" [class]="favoris.isFavori(resto.id) ? 'text-red-500 fill-red-500' : 'text-gray-400 fill-none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              </button>
+              <div class="absolute bottom-3 left-3 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" [class]="resto.ouvert ? 'bg-success' : 'bg-gray-400'"></span>
+                <span class="text-white text-xs font-semibold">{{ resto.ouvert ? 'Ouvert' : 'Fermé' }}</span>
               </div>
             </div>
-            <p class="text-sm text-muted mb-3">{{ resto.categorie }}</p>
-            <div class="flex items-center justify-between text-xs text-muted border-t border-gray-50 pt-3">
-              <span class="flex items-center gap-1 font-medium">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                {{ resto.tempsLivraison }} min
-              </span>
-              <span class="font-medium">{{ resto.fraisLivraison | number }} FCFA</span>
+            <div class="p-4">
+              <div class="flex items-start justify-between gap-2 mb-1">
+                <h3 class="font-bold text-secondary text-base leading-tight">{{ resto.nom }}</h3>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  <span class="text-xs font-bold text-secondary">{{ resto.note }}</span>
+                  <span class="text-xs text-muted">({{ resto.totalAvis }})</span>
+                </div>
+              </div>
+              <p class="text-sm text-muted mb-3">{{ resto.categorie }}</p>
+              <div class="flex items-center justify-between text-xs text-muted border-t border-gray-50 pt-3">
+                <span class="flex items-center gap-1 font-medium">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  {{ resto.tempsLivraison }} min
+                </span>
+                <span class="font-medium">{{ resto.fraisLivraison | number }} FCFA</span>
+              </div>
             </div>
-          </div>
-        </a>
-      }
-    </div>
+          </a>
+        }
+      </div>
+    }
   </section>
 
 </div>

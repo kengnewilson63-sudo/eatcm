@@ -65,6 +65,10 @@ export interface Restaurant {
   soldeWallet: number;
   modeLivraison: ModeLivraison; // NOUVEAU
   actif: boolean;
+  latitude?: number;
+  longitude?: number;
+  horairesJson?: string;
+  proprietaireId?: number;
 }
 
 export interface HoraireOuverture {

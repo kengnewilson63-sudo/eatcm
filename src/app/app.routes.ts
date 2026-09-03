@@ -56,10 +56,11 @@ export const routes: Routes = [
       { path: 'stats',     loadComponent: () => import('./features/dashboard-restaurant/stats/stats.component').then(m => m.StatsComponent) },
       { path: 'livreurs',  loadComponent: () => import('./features/dashboard-restaurant/livreurs/livreurs.component').then(m => m.LivreursRestaurantComponent) },
       { path: 'horaires', loadComponent: () => import('./features/dashboard-restaurant/horaires/horaires.component').then(m => m.HorairesComponent) },
+      { path: 'parametres', loadComponent: () => import('./features/dashboard-restaurant/parametres/parametres.component').then(m => m.ParametresRestaurantComponent) },
       {
-  path: 'promotions',
-  loadComponent: () => import('./features/dashboard-restaurant/promotions/promotions.component').then(m => m.PromotionsComponent)
-}
+        path: 'promotions',
+        loadComponent: () => import('./features/dashboard-restaurant/promotions/promotions.component').then(m => m.PromotionsComponent)
+      }
 
     ],
   },
