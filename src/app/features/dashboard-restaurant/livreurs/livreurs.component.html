@@ -33,8 +33,8 @@
         <p class="text-xs text-muted font-medium">En attente</p>
       </div>
       <div class="bg-white rounded-2xl p-4" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
-        <p class="text-2xl font-extrabold text-primary">{{ stats().cashTotal | number }} FCFA</p>
-        <p class="text-xs text-muted font-medium">Cash à récupérer</p>
+        <p class="text-2xl font-extrabold text-gray-500">{{ stats().expirees }}</p>
+        <p class="text-xs text-muted font-medium">Expirées</p>
       </div>
     </div>
 
@@ -44,27 +44,28 @@
         <h2 class="font-bold text-secondary">Équipe actuelle</h2>
       </div>
 
-      @if (livreurs().length === 0) {
+      @if (loading()) {
+        <div class="text-center py-12"><p class="text-sm font-bold text-muted">Chargement…</p></div>
+      } @else if (livreurs().length === 0) {
         <div class="text-center py-12">
           <div class="text-5xl mb-3">🛵</div>
           <p class="font-bold text-secondary text-sm">Aucun livreur</p>
-          <p class="text-xs text-muted mt-1">Ajoute ton premier livreur pour commencer</p>
+          <p class="text-xs text-muted mt-1">Invite ton premier livreur pour commencer</p>
         </div>
       }
 
       <div class="divide-y divide-gray-50">
         @for (livreur of livreurs(); track livreur.id) {
           <div class="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-gray-50 transition-colors">
-            
+
             <!-- Avatar -->
             <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0"
-                 [class]="livreur.statut === 'ACTIF' ? 'bg-green-500' : livreur.statut === 'EN_ATTENTE' ? 'bg-amber-500' : 'bg-gray-400'">
+                 [class]="livreur.statut === 'ACCEPTEE' ? 'bg-green-500' : livreur.statut === 'EN_ATTENTE' ? 'bg-amber-500' : 'bg-gray-400'">
               {{ getInitials(livreur) }}
             </div>
 
-            <!-- Info - CORRIGÉ pour mobile -->
+            <!-- Info -->
             <div class="flex-1 min-w-0">
-              <!-- Nom + badge sur mobile -->
               <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                 <p class="font-bold text-secondary text-sm sm:text-base truncate">
                   {{ livreur.prenom }} {{ livreur.nom }}
@@ -74,44 +75,25 @@
                   {{ badgeLabel(livreur.statut) }}
                 </span>
               </div>
-              
-              <!-- Téléphone -->
+
               <p class="text-xs text-muted mt-0.5">{{ livreur.telephone || livreur.email }}</p>
-              
-              <!-- Stats - CORRIGÉ en grid pour mobile -->
-              <div class="grid grid-cols-2 sm:flex sm:items-center gap-x-3 gap-y-1 mt-1.5">
-                <span class="text-xs text-muted">🛵 {{ livreur.livraisons }} livraisons</span>
-                <span class="text-xs text-muted">💰 {{ livreur.gainsMois | number }} FCFA/mois</span>
-                @if (livreur.cashDu > 0) {
-                  <span class="text-xs font-bold text-red-500 col-span-2 sm:col-auto">
-                    💸 {{ livreur.cashDu | number }} FCFA à récupérer
-                  </span>
+
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                <span class="text-xs text-muted">📅 Invité le {{ formatDate(livreur.dateAjout) }}</span>
+                @if (livreur.statut === 'EN_ATTENTE') {
+                  <span class="text-xs text-amber-600">⏳ Expire le {{ formatDate(livreur.dateExpiration) }}</span>
                 }
               </div>
             </div>
 
             <!-- Actions -->
             <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              <button (click)="toggleStatut(livreur.id)"
-                      [class]="livreur.statut === 'ACTIF' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-500 bg-gray-50 hover:bg-gray-100'"
-                      class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center border-none cursor-pointer transition-colors"
-                      title="{{ livreur.statut === 'ACTIF' ? 'Désactiver' : 'Activer' }}">
-                @if (livreur.statut === 'ACTIF') {
-                  <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                    <line x1="12" y1="2" x2="12" y2="12"/>
-                  </svg>
-                } @else {
-                  <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
-                  </svg>
-                }
-              </button>
-              <button (click)="retirer(livreur.id)"
-                      class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 border-none cursor-pointer transition-colors"
-                      title="Retirer">
+              <button (click)="copierLien(lienInvitation(livreur))"
+                      class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-primary bg-orange-50 hover:bg-orange-100 border-none cursor-pointer transition-colors"
+                      title="Copier le lien d'invitation">
                 <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                 </svg>
               </button>
             </div>

@@ -1,8 +1,25 @@
 import { Component, ChangeDetectionStrategy, signal, input, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TrackingService } from '../../../core/services/tracking.service';
+import { TrackingGateway } from '../../../core/realtime/tracking.gateway';
+import { environment } from '../../../../environments/environment';
 
-declare const L: any;
+/** Chargeur partage du SDK Google Maps (une seule injection de script). */
+let googleMapsLoader: Promise<void> | null = null;
+function chargerGoogleMaps(apiKey: string): Promise<void> {
+  if (googleMapsLoader) return googleMapsLoader;
+  googleMapsLoader = new Promise<void>((resolve, reject) => {
+    if (typeof (window as any).google?.maps !== 'undefined') { resolve(); return; }
+    const cb = '__eatscmTrackingMapsReady';
+    (window as any)[cb] = () => { resolve(); delete (window as any)[cb]; };
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&language=fr&region=CM&loading=async&callback=${cb}`;
+    s.async = true;
+    s.onerror = () => reject(new Error('google_maps_script_error'));
+    document.head.appendChild(s);
+  });
+  return googleMapsLoader;
+}
 
 @Component({
   selector: 'app-tracking-map',
@@ -13,6 +30,7 @@ declare const L: any;
 })
 export class TrackingMapComponent implements OnInit, OnDestroy {
   private tracking = inject(TrackingService);
+  private gateway = inject(TrackingGateway);
 
   commandeId       = input.required<number>();
   restaurantLat    = input<number>(4.0483);
@@ -27,6 +45,10 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
   private markerClient: any = null;
   private routeLine: any = null;
   private intervalSim: any = null;
+  /** Désabonnement du topic WebSocket de position. */
+  private desabonnerPosition: (() => void) | null = null;
+  /** Passe à true dès qu'une vraie position arrive : on arrête alors la simulation. */
+  private positionReelleRecue = false;
 
   readonly positionLivreur = this.tracking.positionLivreur;
   statutLivraison = signal<'VERS_RESTAURANT' | 'VERS_CLIENT' | 'ARRIVE'>('VERS_RESTAURANT');
@@ -40,7 +62,46 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     setTimeout(() => this.initMap(), 300);
+    // On s'abonne d'abord au flux temps réel : si une vraie position arrive,
+    // la simulation s'arrête d'elle-même (voir appliquerPosition).
+    this.ecouterPositionReelle();
+    // Repli : animation locale tant qu'aucune position réelle n'est reçue.
     this.demarrerSimulation();
+  }
+
+  /**
+   * Abonnement au topic `/topic/commande/{id}/position` publié par le backend
+   * (RealtimeService) à chaque `POST /api/livreur/position` du livreur.
+   */
+  private ecouterPositionReelle(): void {
+    const topic = `/topic/commande/${this.commandeId()}/position`;
+    this.desabonnerPosition = this.gateway.souscrire(topic, (message) => {
+      const body = message.body ?? {};
+      const lat = Number(body.latitude ?? body.lat);
+      const lng = Number(body.longitude ?? body.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      this.appliquerPosition(lat, lng, Number(body.timestamp) || Date.now());
+    });
+  }
+
+  /**
+   * Applique une position reçue du livreur : marqueur, carte, ETA.
+   * La première position réelle reçue coupe la simulation.
+   */
+  private appliquerPosition(lat: number, lng: number, timestamp: number): void {
+    if (!this.positionReelleRecue) {
+      this.positionReelleRecue = true;
+      if (this.intervalSim) { clearInterval(this.intervalSim); this.intervalSim = null; }
+    }
+
+    this.simLat = lat;
+    this.simLng = lng;
+
+    if (this.markerLivreur) this.markerLivreur.setPosition({ lat, lng });
+    if (this.map) this.map.panTo({ lat, lng });
+
+    this.tracking.positionLivreur.set({ latitude: lat, longitude: lng, timestamp });
+    this.calculerItineraire();
   }
 
   private async initMap(): Promise<void> {
@@ -51,77 +112,95 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (typeof L === 'undefined') {
-      this.erreurCarte.set('Leaflet et OpenStreetMap sont indisponibles dans ce navigateur.');
+    if (!environment.googleMapsApiKey) {
+      this.erreurCarte.set('Carte Google Maps non configurée.');
       this.chargement.set(false);
       return;
     }
 
     try {
-      this.map = L.map('tracking-map', {
+      await chargerGoogleMaps(environment.googleMapsApiKey);
+    } catch {
+      this.erreurCarte.set('Impossible de charger Google Maps.');
+      this.chargement.set(false);
+      return;
+    }
+
+    const g = (window as any).google;
+    if (!g?.maps) {
+      this.erreurCarte.set('Google Maps est indisponible dans ce navigateur.');
+      this.chargement.set(false);
+      return;
+    }
+
+    try {
+      const resto = { lat: this.restaurantLat(), lng: this.restaurantLng() };
+      this.map = new g.maps.Map(el, {
+        center: resto,
+        zoom: 14,
+        disableDefaultUI: true,
         zoomControl: true,
-        attributionControl: false,
-        scrollWheelZoom: true,
-      }).setView([this.restaurantLat(), this.restaurantLng()], 14);
+        clickableIcons: false,
+        gestureHandling: 'greedy',
+        styles: [
+          { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit',      stylers: [{ visibility: 'off' }] },
+        ],
+      });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap',
-      }).addTo(this.map);
+      this.markerResto = new g.maps.Marker({
+        position: resto,
+        map: this.map,
+        icon: this.creerIcone(g, '#FF5A36', '🍽️'),
+      });
 
-      this.markerResto = L.marker([this.restaurantLat(), this.restaurantLng()], {
-        icon: this.creerIcone('#FF5A36', '🍽️'),
-      }).addTo(this.map);
+      this.markerClient = new g.maps.Marker({
+        position: { lat: this.clientLat(), lng: this.clientLng() },
+        map: this.map,
+        icon: this.creerIcone(g, '#3B82F6', '🏠'),
+      });
 
-      this.markerClient = L.marker([this.clientLat(), this.clientLng()], {
-        icon: this.creerIcone('#3B82F6', '🏠'),
-      }).addTo(this.map);
+      this.markerLivreur = new g.maps.Marker({
+        position: { lat: this.simLat, lng: this.simLng },
+        map: this.map,
+        icon: this.creerIcone(g, '#22C55E', '🛵', true),
+      });
 
-      this.markerLivreur = L.marker([this.simLat, this.simLng], {
-        icon: this.creerIcone('#22C55E', '🛵', true),
-      }).addTo(this.map);
-
-      this.routeLine = L.polyline([
-        [this.simLat, this.simLng],
-        [this.restaurantLat(), this.restaurantLng()],
-      ], {
-        color: '#FF5A36',
-        weight: 4,
-        opacity: 0.8,
-      }).addTo(this.map);
+      this.routeLine = new g.maps.Polyline({
+        path: [
+          { lat: this.simLat, lng: this.simLng },
+          resto,
+        ],
+        strokeColor: '#FF5A36',
+        strokeWeight: 4,
+        strokeOpacity: 0.8,
+        map: this.map,
+      });
 
       this.chargement.set(false);
       this.calculerItineraire();
     } catch (err) {
-      console.error('Leaflet tracking init error:', err);
-      this.erreurCarte.set('Impossible de charger la carte OpenStreetMap.');
+      console.error('Google Maps tracking init error:', err);
+      this.erreurCarte.set('Impossible de charger la carte Google Maps.');
       this.chargement.set(false);
     }
   }
 
-  private creerIcone(couleur: string, emoji: string, pulse = false): any {
+  private creerIcone(g: any, couleur: string, emoji: string, pulse = false): any {
     const pulseClass = pulse ? 'livreur-marker' : '';
-    return L.divIcon({
-      className: '',
-      html: `
-        <div class="${pulseClass}" style="
-          width: 42px;
-          height: 42px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          background: ${couleur};
-          border: 3px solid white;
-          box-shadow: 0 8px 18px rgba(0,0,0,0.18);
-          font-size: 20px;
-          transform: translateY(-4px);
-        ">${emoji}</div>
-      `,
-      iconSize: [42, 42],
-      iconAnchor: [21, 41],
-      popupAnchor: [0, -30],
-    });
+    // Google Maps n'accepte pas de HTML dans un marqueur : on rend le badge
+    // en SVG (data URL) pour garder le rendu rond + emoji.
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42">
+        <circle cx="21" cy="21" r="18" fill="${couleur}" stroke="white" stroke-width="3"/>
+        <text x="21" y="27" font-size="20" text-anchor="middle">${emoji}</text>
+      </svg>`;
+    return {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+      scaledSize: new g.maps.Size(42, 42),
+      anchor: new g.maps.Point(21, 41),
+      className: pulseClass,
+    };
   }
 
   private calculerItineraire(): void {
@@ -133,9 +212,9 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
       ? [this.restaurantLat(), this.restaurantLng()]
       : [this.clientLat(), this.clientLng()];
 
-    this.routeLine.setLatLngs([
-      [this.simLat, this.simLng],
-      target,
+    this.routeLine.setPath([
+      { lat: this.simLat, lng: this.simLng },
+      { lat: target[0], lng: target[1] },
     ]);
 
     const distanceKm = this.calculerDist(this.simLat, this.simLng, target[0], target[1]);
@@ -164,11 +243,11 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
       this.simLng += (cible.lng - this.simLng) * 0.12;
 
       if (this.markerLivreur) {
-        this.markerLivreur.setLatLng([this.simLat, this.simLng]);
+        this.markerLivreur.setPosition({ lat: this.simLat, lng: this.simLng });
       }
 
       if (this.map) {
-        this.map.panTo([this.simLat, this.simLng], { animate: true, duration: 0.5 });
+        this.map.panTo({ lat: this.simLat, lng: this.simLng });
       }
 
       this.tracking.positionLivreur.set({
@@ -207,16 +286,26 @@ export class TrackingMapComponent implements OnInit, OnDestroy {
 
   centrerSurLivreur(): void {
     if (this.map && this.simLat) {
-      this.map.flyTo([this.simLat, this.simLng], 15, { duration: 0.8 });
+      this.map.panTo({ lat: this.simLat, lng: this.simLng });
+      this.map.setZoom(15);
     }
   }
 
   ngOnDestroy(): void {
     if (this.intervalSim) clearInterval(this.intervalSim);
-    if (this.map) {
-      this.map.remove();
-      this.map = null;
-    }
+    // Coupe l'abonnement WebSocket pour ne pas laisser fuir l'écouteur.
+    this.desabonnerPosition?.();
+    this.desabonnerPosition = null;
+    // Google Maps n'expose pas de .remove() : on detache les references.
+    if (this.markerLivreur) this.markerLivreur.setMap(null);
+    if (this.markerResto)   this.markerResto.setMap(null);
+    if (this.markerClient)  this.markerClient.setMap(null);
+    if (this.routeLine)     this.routeLine.setMap(null);
+    this.markerLivreur = null;
+    this.markerResto = null;
+    this.markerClient = null;
+    this.routeLine = null;
+    this.map = null;
     this.tracking.positionLivreur.set(null);
   }
 }

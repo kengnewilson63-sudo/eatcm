@@ -1,7 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PromotionService } from '../../../core/services/promotion.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { Promotion } from '../../../core/models/promotion.model';
 
 @Component({
@@ -12,10 +14,14 @@ import { Promotion } from '../../../core/models/promotion.model';
   styleUrl: './promotions.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PromotionsComponent {
+export class PromotionsComponent implements OnInit {
   private promoSvc = inject(PromotionService);
+  private auth = inject(AuthService);
+  private notif = inject(NotificationService);
 
-  readonly restaurantId = 1; // Récupère ça depuis ton auth plus tard
+  /** Restaurant du propriétaire connecté (id exposé par le backend au login). */
+  readonly restaurantId =
+    this.auth.currentUser()?.restaurantProprietaireId ?? this.auth.currentUser()?.id ?? 1;
 
   modalOuvert = signal(false);
   modeEdition = signal(false);
@@ -35,6 +41,10 @@ export class PromotionsComponent {
 
   readonly mesPromotions = () =>
     this.promoSvc.promotions().filter(p => p.restaurantId === this.restaurantId);
+
+  ngOnInit(): void {
+    this.promoSvc.recharger(this.restaurantId);
+  }
 
   readonly typesPromo = [
     { value: 'remise' as const, label: 'Remise %' },
@@ -90,9 +100,15 @@ export class PromotionsComponent {
     }
 
     if (this.modeEdition() && this.promoEditee()) {
-      this.promoSvc.modifierPromotion(promo.id, promo);
+      this.promoSvc.modifierPromotion(promo.id, promo).subscribe({
+        next: () => this.notif.success('Promotion mise à jour !'),
+        error: () => this.notif.error('Erreur lors de la mise à jour.'),
+      });
     } else {
-      this.promoSvc.ajouterPromotion(promo);
+      this.promoSvc.ajouterPromotion(promo).subscribe({
+        next: () => this.notif.success('Promotion créée !'),
+        error: () => this.notif.error('Erreur lors de la création.'),
+      });
     }
 
     this.modalOuvert.set(false);
@@ -101,11 +117,16 @@ export class PromotionsComponent {
 
   supprimer(id: number): void {
     if (!confirm('Supprimer cette promotion ?')) return;
-    this.promoSvc.supprimerPromotion(id);
+    this.promoSvc.supprimerPromotion(id).subscribe({
+      next: () => this.notif.info('Promotion supprimée.'),
+      error: () => this.notif.error('Erreur lors de la suppression.'),
+    });
   }
 
   toggleActif(id: number): void {
-    this.promoSvc.toggleActif(id);
+    this.promoSvc.toggleActif(id).subscribe({
+      error: () => this.notif.error('Erreur lors du changement de statut.'),
+    });
   }
 
   resetForm(): void {

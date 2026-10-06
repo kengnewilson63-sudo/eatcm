@@ -1,7 +1,12 @@
-import { Component, ChangeDetectionStrategy, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import {
+  RestaurantService,
+  InvitationLivreur as InvitationApi,
+} from '../../../core/services/restaurant.service';
+import { NotificationService } from '../../../core/services/notification.service';
 
-export type StatutLivreur = 'ACTIF' | 'INACTIF' | 'EN_ATTENTE';
+export type StatutLivreur = 'ACTIF' | 'ACCEPTEE' | 'EN_ATTENTE' | 'EXPIREE';
 
 export interface LivreurInterne {
   id: number;
@@ -10,10 +15,9 @@ export interface LivreurInterne {
   telephone: string;
   email: string;
   statut: StatutLivreur;
-  livraisons: number;
-  gainsMois: number;
-  cashDu: number;
+  token: string;
   dateAjout: string;
+  dateExpiration: string;
 }
 
 @Component({
@@ -22,8 +26,12 @@ export interface LivreurInterne {
   templateUrl: './livreurs.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LivreursRestaurantComponent {
+export class LivreursRestaurantComponent implements OnInit {
+  private restoSvc = inject(RestaurantService);
+  private notif = inject(NotificationService);
+
   // ─── Signals ───
+  loading      = signal(false);
   modalInvit   = signal(false);
   modeInvit    = signal<'SMS' | 'EMAIL'>('SMS');
   invitTel     = signal('');
@@ -33,120 +41,135 @@ export class LivreursRestaurantComponent {
   invitErreur  = signal('');
   lienGenere   = signal('');
 
-  livreurs = signal<LivreurInterne[]>([
-    {
-      id: 1, nom: 'Mbarga', prenom: 'Jean', telephone: '+237677123456',
-      email: 'jean.mbarga@gmail.com', statut: 'ACTIF', livraisons: 45,
-      gainsMois: 67500, cashDu: 12500, dateAjout: '2025-01-01T00:00:00',
-    },
-    {
-      id: 2, nom: 'Fotso', prenom: 'Paul', telephone: '+237655987654',
-      email: 'paul.fotso@gmail.com', statut: 'ACTIF', livraisons: 23,
-      gainsMois: 34500, cashDu: 0, dateAjout: '2025-01-10T00:00:00',
-    },
-    {
-      id: 3, nom: 'Nkolo', prenom: 'Alain', telephone: '+237699456123',
-      email: 'alain.nkolo@gmail.com', statut: 'EN_ATTENTE', livraisons: 0,
-      gainsMois: 0, cashDu: 0, dateAjout: '2025-01-14T00:00:00',
-    },
-  ]);
+  livreurs = signal<LivreurInterne[]>([]);
 
   readonly stats = computed(() => ({
-    total:     this.livreurs().length,
-    actifs:    this.livreurs().filter(l => l.statut === 'ACTIF').length,
-    attente:   this.livreurs().filter(l => l.statut === 'EN_ATTENTE').length,
-    cashTotal: this.livreurs().reduce((s, l) => s + l.cashDu, 0),
+    total:   this.livreurs().length,
+    actifs:  this.livreurs().filter(l => l.statut === 'ACCEPTEE').length,
+    attente: this.livreurs().filter(l => l.statut === 'EN_ATTENTE').length,
+    expirees: this.livreurs().filter(l => l.statut === 'EXPIREE').length,
   }));
 
+  ngOnInit(): void {
+    this.chargerInvitations();
+  }
+
+  /** Charge les invitations envoyées par le restaurant connecté. */
+  chargerInvitations(): void {
+    this.loading.set(true);
+    this.restoSvc.getMesInvitations().subscribe({
+      next: invitations => {
+        this.livreurs.set(invitations.map(i => this.versLivreur(i)));
+        this.loading.set(false);
+      },
+      error: err => {
+        this.loading.set(false);
+        this.notif.error('Impossible de charger tes invitations livreurs');
+        console.error(err);
+      }
+    });
+  }
+
+  private versLivreur(i: InvitationApi): LivreurInterne {
+    const parts = (i.livreurNom ?? '').trim().split(' ');
+    return {
+      id: i.id,
+      prenom: parts[0] ?? '',
+      nom: parts.slice(1).join(' ') || parts[0] || '',
+      telephone: i.telephone ?? '',
+      email: i.email ?? '',
+      statut: i.statut === 'ACCEPTEE' ? 'ACCEPTEE' : (i.statut === 'EXPIREE' ? 'EXPIREE' : 'EN_ATTENTE'),
+      token: i.token,
+      dateAjout: i.dateCreation,
+      dateExpiration: i.dateExpiration,
+    };
+  }
+
   // ─── Méthodes ───
-
-  toggleStatut(id: number): void {
-    this.livreurs.update(l => l.map(x =>
-      x.id === id
-        ? { ...x, statut: x.statut === 'ACTIF' ? 'INACTIF' as const : 'ACTIF' as const }
-        : x
-    ));
-  }
-
-  retirer(id: number): void {
-    if (!confirm('Retirer ce livreur de ton équipe ?')) return;
-    this.livreurs.update(l => l.filter(x => x.id !== id));
-  }
 
   inviter(): void {
     this.invitErreur.set('');
 
-    if (!this.invitNom()) {
+    if (!this.invitNom().trim()) {
       this.invitErreur.set('Le nom est obligatoire.');
       return;
     }
-
-    if (this.modeInvit() === 'SMS' && !this.invitTel()) {
+    if (this.modeInvit() === 'SMS' && !this.invitTel().trim()) {
       this.invitErreur.set('Le numéro de téléphone est obligatoire.');
       return;
     }
-
-    if (this.modeInvit() === 'EMAIL' && !this.invitEmail()) {
+    if (this.modeInvit() === 'EMAIL' && !this.invitEmail().trim()) {
       this.invitErreur.set("L'adresse email est obligatoire.");
       return;
     }
 
-    const tokenInvit = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const lienInvit  = `https://eatscm.cm/invitation?token=${tokenInvit}&resto=1`;
-
-    const messageSMS = `Bonjour ${this.invitNom()} ! Chez Maman Bibiane vous invite à rejoindre EatsCM comme livreur. Cliquez ici : ${lienInvit}`;
-    const messageEmail = `Bonjour ${this.invitNom()},\n\nChez Maman Bibiane vous invite à rejoindre EatsCM comme livreur partenaire.\n\n${lienInvit}\n\nCe lien est valable 48h.\n\nÀ bientôt sur EatsCM 🛵`;
-
-    console.log('Invitation envoyée:', {
-      nom:     this.invitNom(),
-      contact: this.modeInvit() === 'SMS' ? `+237${this.invitTel()}` : this.invitEmail(),
-      lien:    lienInvit,
-      message: this.modeInvit() === 'SMS' ? messageSMS : messageEmail,
-    });
-
-    const nouveau: LivreurInterne = {
-      id:         Date.now(),
-      nom:        this.invitNom().split(' ').slice(1).join(' ') || this.invitNom(),
-      prenom:     this.invitNom().split(' ')[0],
-      telephone:  this.modeInvit() === 'SMS' ? `+237${this.invitTel()}` : '',
-      email:      this.modeInvit() === 'EMAIL' ? this.invitEmail() : '',
-      statut:     'EN_ATTENTE',
-      livraisons: 0,
-      gainsMois:  0,
-      cashDu:     0,
-      dateAjout:  new Date().toISOString(),
+    const payload = {
+      nom: this.invitNom().trim(),
+      mode: this.modeInvit(),
+      telephone: this.modeInvit() === 'SMS' ? `+237${this.invitTel().trim()}` : undefined,
+      email: this.modeInvit() === 'EMAIL' ? this.invitEmail().trim() : undefined,
     };
 
-    this.livreurs.update(l => [...l, nouveau]);
-    this.invitSucces.set(true);
-    this.lienGenere.set(lienInvit);
-
-    setTimeout(() => {
-      this.invitSucces.set(false);
-      this.lienGenere.set('');
-      this.modalInvit.set(false);
-      this.invitNom.set('');
-      this.invitTel.set('');
-      this.invitEmail.set('');
-    }, 4000);
+    this.restoSvc.inviterLivreur(payload).subscribe({
+      next: res => {
+        this.livreurs.update(l => [
+          this.versLivreur({
+            id: res.id, restaurantId: 0, livreurNom: payload.nom,
+            telephone: payload.telephone ?? null, email: payload.email ?? null,
+            token: res.token, statut: 'EN_ATTENTE',
+            dateCreation: new Date().toISOString(), dateExpiration: res.dateExpiration,
+          }),
+          ...l,
+        ]);
+        this.invitSucces.set(true);
+        this.lienGenere.set(res.lien);
+        this.notif.success(res.message);
+        setTimeout(() => this.fermerModal(), 6000);
+      },
+      error: err => {
+        this.invitErreur.set(err?.error?.message || "Échec de l'envoi de l'invitation.");
+        console.error(err);
+      }
+    });
   }
 
-  async copierLien(): Promise<void> {
-    await navigator.clipboard.writeText(this.lienGenere());
-    alert('Lien copié ! 🔗');
+  private fermerModal(): void {
+    this.invitSucces.set(false);
+    this.lienGenere.set('');
+    this.modalInvit.set(false);
+    this.invitNom.set('');
+    this.invitTel.set('');
+    this.invitEmail.set('');
+    this.invitErreur.set('');
+  }
+
+  async copierLien(lien?: string): Promise<void> {
+    const url = lien ?? this.lienGenere();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.notif.success('Lien copié ! 🔗');
+    } catch {
+      this.notif.warning(url);
+    }
+  }
+
+  /** Reconstruit le lien d'invitation à partir du token. */
+  lienInvitation(l: LivreurInterne): string {
+    return `${window.location.origin}/auth/register?role=LIVREUR&invitation=${l.token}`;
   }
 
   badgeClass(s: StatutLivreur): string {
-    if (s === 'ACTIF')      return 'bg-green-100 text-green-700';
-    if (s === 'INACTIF')    return 'bg-gray-100 text-gray-500';
+    if (s === 'ACCEPTEE')   return 'bg-green-100 text-green-700';
     if (s === 'EN_ATTENTE') return 'bg-amber-100 text-amber-700';
+    if (s === 'EXPIREE')    return 'bg-gray-100 text-gray-500';
     return '';
   }
 
   badgeLabel(s: StatutLivreur): string {
-    if (s === 'ACTIF')      return '● Actif';
-    if (s === 'INACTIF')    return '● Inactif';
+    if (s === 'ACCEPTEE')   return '● Actif';
     if (s === 'EN_ATTENTE') return '⏳ En attente';
+    if (s === 'EXPIREE')    return '✕ Expirée';
     return '';
   }
 

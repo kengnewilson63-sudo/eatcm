@@ -1,128 +1,181 @@
-import { Injectable, signal, inject } from '@angular/core';
+import { Injectable, signal, inject, OnDestroy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { TrackingGateway } from '../realtime/tracking.gateway';
+import { AuthService } from './auth.service';
 import { NotificationService } from './notification.service';
+import { environment } from '../../../environments/environment';
 
+/** Types renvoyés par le backend (`TypeNotification`). */
+export type TypeNotificationBackend =
+  | 'NOUVELLE_COMMANDE'
+  | 'STATUT_COMMANDE'
+  | 'COURSE_DISPONIBLE'
+  | 'COURSE_PRISE'
+  | 'PAIEMENT'
+  | 'COMPTE'
+  | 'LITIGE';
+
+/**
+ * Notification telle que persistée par le backend (table `notifications`).
+ * `dateCreation` est un LocalDateTime sérialisé en ISO sans fuseau.
+ */
 export interface NotificationPush {
-  id: string;
-  type: 'NOUVELLE_COMMANDE' | 'STATUT_COMMANDE' | 'COURSE_DISPONIBLE' | 'COURSE_ACCEPTEE';
+  id: number;
+  type: TypeNotificationBackend;
   titre: string;
-  message: string;
-  commandeId?: number;
+  message: string | null;
+  commandeId: number | null;
+  restaurantId: number | null;
+  montant: number | null;
   lu: boolean;
-  date: string;
+  dateCreation: string;
 }
 
+/**
+ * Notifications utilisateur branchées sur le backend.
+ *
+ *  - Chargement initial : GET    /api/notifications
+ *  - Temps réel         : STOMP  /topic/user/{userId}/notifications
+ *  - Marquage lu        : PATCH  /api/notifications/{id}/lire, /tout-lire
+ *  - Suppression        : DELETE /api/notifications/{id}
+ *
+ * Un repli par polling prend le relais quand le WebSocket n'est pas disponible,
+ * pour que le badge de la cloche reste à jour.
+ */
 @Injectable({ providedIn: 'root' })
-export class NotificationPushService {
-  private notif = inject(NotificationService);
+export class NotificationPushService implements OnDestroy {
+  private http    = inject(HttpClient);
+  private gateway = inject(TrackingGateway);
+  private auth    = inject(AuthService);
+  private notif   = inject(NotificationService);
+
+  private readonly api = `${environment.apiUrl}/notifications`;
 
   notifications = signal<NotificationPush[]>([]);
-  private intervalPolling: any = null;
+  /** Vrai quand le flux STOMP des notifications est actif. */
+  tempsReelActif = signal(false);
+
+  private arrets: (() => void)[] = [];
+  private intervalPolling: ReturnType<typeof setInterval> | null = null;
+  private demarre = false;
 
   // Nombre non lues
   get totalNonLues(): number {
     return this.notifications().filter(n => !n.lu).length;
   }
 
-  // ══ RESTAURANT — Nouvelle commande reçue ══════════════════
-  notifierNouvelleCommande(commandeId: number, clientNom: string, montant: number): void {
-    const n: NotificationPush = {
-      id: crypto.randomUUID(),
-      type: 'NOUVELLE_COMMANDE',
-      titre: '🍽️ Nouvelle commande !',
-      message: `${clientNom} vient de commander — ${montant.toLocaleString()} FCFA`,
-      commandeId,
-      lu: false,
-      date: new Date().toISOString(),
-    };
-    this.ajouterNotification(n);
-    // Toast visible immédiatement
-    this.notif.success(`🍽️ Nouvelle commande de ${clientNom} — ${montant.toLocaleString()} FCFA`);
-    // Son notification
-    this.jouerSon();
+  // ══════════════════════════════════
+  //  DÉMARRAGE
+  // ══════════════════════════════════════════════════════════
+
+  /** Charge les notifications et branche le temps réel (idempotent). */
+  demarrer(): void {
+    if (this.demarre) return;
+    const user = this.auth.currentUser();
+    if (!user) return;
+    this.demarre = true;
+
+    this.charger();
+    this.brancherTempsReel(user.id);
+    this.demarrerPollingDeSecours();
   }
 
-  // ══ CLIENT — Changement statut commande ═══════════════════
-  notifierChangementStatut(commandeId: number, statut: string): void {
-    const messages: Record<string, { titre: string; message: string }> = {
-      'ACCEPTEE':       { titre: '✅ Commande acceptée !',      message: 'Le restaurant a accepté ta commande et commence à préparer.' },
-      'EN_PREPARATION': { titre: '👨‍🍳 En préparation !',        message: 'Ton plat est en cours de préparation.' },
-      'PRETE':          { titre: '🎉 Commande prête !',          message: 'Ton plat est prêt — un livreur va bientôt le récupérer.' },
-      'EN_LIVRAISON':   { titre: '🛵 Livreur en route !',        message: 'Ton livreur a récupéré ta commande et est en route.' },
-      'LIVREE':         { titre: '✅ Commande livrée !',          message: 'Bon appétit ! N\'oublie pas de noter le restaurant.' },
-      'ANNULEE':        { titre: '❌ Commande annulée',           message: 'Ta commande a été annulée. Remboursement en cours si applicable.' },
-    };
-
-    const info = messages[statut];
-    if (!info) return;
-
-    const n: NotificationPush = {
-      id: crypto.randomUUID(),
-      type: 'STATUT_COMMANDE',
-      titre: info.titre,
-      message: info.message,
-      commandeId,
-      lu: false,
-      date: new Date().toISOString(),
-    };
-    this.ajouterNotification(n);
-    this.notif.info(`${info.titre} — ${info.message}`);
+  private charger(): void {
+    this.http.get<NotificationPush[]>(this.api).subscribe({
+      next: liste => this.notifications.set(liste),
+      error: () => { /* silencieux : le badge reste simplement vide */ },
+    });
   }
 
-  // ══ LIVREUR — Course disponible ═══════════════════════════
-  notifierCourseDisponible(commandeId: number, restaurant: string, frais: number, distance: number): void {
-    const n: NotificationPush = {
-      id: crypto.randomUUID(),
-      type: 'COURSE_DISPONIBLE',
-      titre: '🛵 Course disponible !',
-      message: `${restaurant} — ${frais.toLocaleString()} FCFA • ${distance.toFixed(1)} km`,
-      commandeId,
-      lu: false,
-      date: new Date().toISOString(),
-    };
-    this.ajouterNotification(n);
-    this.notif.info(`🛵 Nouvelle course — ${restaurant} — ${frais.toLocaleString()} FCFA`);
-    this.jouerSon();
+  /** S'abonne au topic personnel ; bascule sur polling si indisponible. */
+  private brancherTempsReel(userId: number): void {
+    this.arrets.push(
+      this.gateway.souscrire(`/topic/user/${userId}/notifications`, message => {
+        const notif = message.body as NotificationPush;
+        if (!notif || notif.id == null) return;
+        this.ajouterNotification(notif);
+        this.notif.info(notif.titre);
+        this.jouerSon();
+      })
+    );
+
+    // Le gateway se connecte de façon asynchrone : on évalue l'état un peu après.
+    setTimeout(() => this.tempsReelActif.set(this.gateway.estConnecte), 2500);
   }
 
-  // ══ LIVREUR — Course acceptée par un autre ════════════════
-  notifierCourseAcceptee(): void {
-    this.notif.warning('⚡ Cette course a été prise par un autre livreur.');
-  }
-
-  // ══ Polling simulation (remplacer par WebSocket en prod) ══
-  demarrerPolling(role: string, userId: number): void {
-    // En production → remplacer par WebSocket
-    // this.ws = new WebSocket(`wss://api.eatscm.com/ws?userId=${userId}`)
-    // this.ws.onmessage = (msg) => this.traiterMessage(JSON.parse(msg.data))
-
-    // Simulation polling toutes les 30s
+  /**
+   * Repli : recharge la liste périodiquement tant que le WebSocket n'est pas
+   * connecté, afin que le badge ne reste pas figé.
+   */
+  private demarrerPollingDeSecours(): void {
+    if (this.intervalPolling) return;
     this.intervalPolling = setInterval(() => {
-      // En prod → GET /api/notifications/nouvelles
-      console.log('Polling notifications...', role, userId);
+      if (this.gateway.estConnecte) {
+        this.tempsReelActif.set(true);
+        return;
+      }
+      this.tempsReelActif.set(false);
+      this.charger();
     }, 30000);
   }
 
-  arreterPolling(): void {
+  /** Arrête le temps réel et le polling (déconnexion). */
+  arreter(): void {
+    this.arrets.forEach(off => off());
+    this.arrets = [];
     if (this.intervalPolling) {
       clearInterval(this.intervalPolling);
       this.intervalPolling = null;
     }
+    this.demarre = false;
+    this.tempsReelActif.set(false);
+    this.notifications.set([]);
   }
 
-  marquerLue(id: string): void {
+  ngOnDestroy(): void {
+    this.arreter();
+  }
+
+  /** Recharge depuis le serveur. */
+  rafraichir(): void {
+    this.charger();
+  }
+
+  // ══════════════════════════════════
+  //  ACTIONS
+  // ══════════════════════════════════════════════════════════
+
+  marquerLue(id: number): void {
+    const notif = this.notifications().find(n => n.id === id);
+    if (notif?.lu) return;
+
+    // Optimiste : l'UI réagit tout de suite, on annule si le serveur refuse.
     this.notifications.update(l => l.map(n => n.id === id ? { ...n, lu: true } : n));
+    this.http.patch(`${this.api}/${id}/lire`, {}).subscribe({
+      error: () => this.notifications.update(l => l.map(n => n.id === id ? { ...n, lu: false } : n)),
+    });
   }
 
   marquerToutesLues(): void {
+    const precedent = this.notifications();
     this.notifications.update(l => l.map(n => ({ ...n, lu: true })));
+    this.http.patch(`${this.api}/tout-lire`, {}).subscribe({
+      error: () => this.notifications.set(precedent),
+    });
   }
 
-  supprimerNotification(id: string): void {
+  supprimerNotification(id: number): void {
+    const precedent = this.notifications();
     this.notifications.update(l => l.filter(n => n.id !== id));
+    this.http.delete(`${this.api}/${id}`).subscribe({
+      error: () => this.notifications.set(precedent),
+    });
   }
 
   private ajouterNotification(n: NotificationPush): void {
-    this.notifications.update(l => [n, ...l].slice(0, 50)); // Max 50
+    this.notifications.update(l =>
+      l.some(x => x.id === n.id) ? l : [n, ...l].slice(0, 50) // Max 50
+    );
   }
 
   private jouerSon(): void {
@@ -142,12 +195,39 @@ export class NotificationPushService {
   }
 
   formaterDate(d: string): string {
-    const diff = Date.now() - new Date(d).getTime();
+    if (!d) return '';
+    const date = new Date(d);
+    const diff = Date.now() - date.getTime();
     const min = Math.floor(diff / 60000);
     if (min < 1)  return "à l'instant";
     if (min < 60) return `il y a ${min} min`;
     const h = Math.floor(min / 60);
     if (h < 24)   return `il y a ${h}h`;
-    return new Date(d).toLocaleDateString('fr-FR');
+    return date.toLocaleDateString('fr-FR');
+  }
+
+  /** Emoji affiché dans la liste selon le type de notification. */
+  emoji(type: TypeNotificationBackend): string {
+    switch (type) {
+      case 'NOUVELLE_COMMANDE': return '🍽️';
+      case 'STATUT_COMMANDE':   return '📦';
+      case 'COURSE_DISPONIBLE': return '🛵';
+      case 'COURSE_PRISE':      return '⚡';
+      case 'PAIEMENT':          return '💳';
+      case 'LITIGE':            return '⚠️';
+      default:                  return '✅';
+    }
+  }
+
+  /** Classe de fond de la pastille selon le type. */
+  couleurFond(type: TypeNotificationBackend): string {
+    switch (type) {
+      case 'NOUVELLE_COMMANDE': return 'bg-orange-100';
+      case 'STATUT_COMMANDE':   return 'bg-blue-100';
+      case 'COURSE_DISPONIBLE': return 'bg-green-100';
+      case 'PAIEMENT':          return 'bg-purple-100';
+      case 'LITIGE':            return 'bg-red-100';
+      default:                  return 'bg-gray-100';
+    }
   }
 }

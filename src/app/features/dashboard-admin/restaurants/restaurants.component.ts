@@ -1,24 +1,20 @@
 import { Component, ChangeDetectionStrategy, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { RestaurantService, Restaurant } from '../../../core/services/restaurant.service';
+import { RestaurantService, Restaurant, DossierRestaurant } from '../../../core/services/restaurant.service';
 import { NotificationService } from '../../../core/services/notification.service';
 
 interface AdminRestaurantItem {
   id: number;
   nom: string;
   ville: string;
+  telephone?: string;
   note: number;
   actif: boolean;
   certifie: boolean;
   commissionDue: number;
 }
 
-const ADMIN_RESTAURANTS_FALLBACK: AdminRestaurantItem[] = [
-  { id:1, nom:'Chez Maman Bibiane', ville:'Douala', note:4.8, actif:true,  certifie:true,  commissionDue:0     },
-  { id:2, nom:'Le Grill Akwa',      ville:'Douala', note:4.7, actif:true,  certifie:false, commissionDue:15000 },
-  { id:3, nom:'Pizza Roma Douala',  ville:'Douala', note:4.6, actif:true,  certifie:true,  commissionDue:8500  },
-  { id:4, nom:'Sweet Burger',       ville:'Douala', note:4.5, actif:false, certifie:false, commissionDue:0     },
-];
+const ADMIN_RESTAURANTS_FALLBACK: AdminRestaurantItem[] = [];
 
 @Component({
   selector: 'app-admin-restaurants',
@@ -31,6 +27,11 @@ export class RestaurantsComponent implements OnInit {
   private notif = inject(NotificationService);
 
   restaurants = signal<AdminRestaurantItem[]>(ADMIN_RESTAURANTS_FALLBACK);
+
+  /** Dossier ouvert dans le modal de vérification (null = fermé). */
+  dossier = signal<DossierRestaurant | null>(null);
+  chargementDossier = signal(false);
+  erreurDossier = signal('');
 
   readonly stats = computed(() => {
     const list = this.restaurants();
@@ -54,6 +55,7 @@ export class RestaurantsComponent implements OnInit {
             id: r.id,
             nom: r.nom,
             ville: r.ville || 'Douala',
+            telephone: r.telephone,
             note: r.note || 0,
             actif: r.actif ?? true,
             certifie: r.certifie ?? false,
@@ -72,9 +74,9 @@ export class RestaurantsComponent implements OnInit {
         this.restaurants.update(l => l.map(r => r.id === id ? { ...r, actif: updated.actif } : r));
         this.notif.info(updated.actif ? 'Restaurant activé !' : 'Restaurant suspendu.');
       },
-      error: () => {
-        // Fallback local
-        this.restaurants.update(l => l.map(r => r.id === id ? { ...r, actif: !r.actif } : r));
+      error: (err) => {
+        console.error('Erreur toggle actif restaurant:', err);
+        this.notif.error('Impossible de modifier ce restaurant. Vérifie que le backend est lancé.');
       }
     });
   }
@@ -85,10 +87,41 @@ export class RestaurantsComponent implements OnInit {
         this.restaurants.update(l => l.map(r => r.id === id ? { ...r, certifie: updated.certifie } : r));
         this.notif.success('Statut de certification mis à jour !');
       },
-      error: () => {
-        // Fallback local
-        this.restaurants.update(l => l.map(r => r.id === id ? { ...r, certifie: true } : r));
+      error: (err) => {
+        console.error('Erreur certification restaurant:', err);
+        this.notif.error('Impossible de modifier la certification.');
       }
     });
+  }
+
+  // ===== DOSSIER DE VÉRIFICATION =====
+
+  /** Ouvre le dossier complet (CNI, façade, coordonnées) avant de valider. */
+  voirDossier(id: number): void {
+    this.chargementDossier.set(true);
+    this.erreurDossier.set('');
+    this.dossier.set(null);
+    this.restoSvc.adminDossierRestaurant(id).subscribe({
+      next: (d) => {
+        this.dossier.set(d);
+        this.chargementDossier.set(false);
+      },
+      error: (err) => {
+        console.error('Erreur chargement dossier:', err);
+        this.erreurDossier.set('Impossible de charger le dossier de ce restaurant.');
+        this.chargementDossier.set(false);
+      }
+    });
+  }
+
+  fermerDossier(): void {
+    this.dossier.set(null);
+    this.erreurDossier.set('');
+  }
+
+  /** Valide le compte depuis le modal puis referme. */
+  validerDepuisDossier(id: number): void {
+    this.toggleActif(id);
+    this.fermerDossier();
   }
 }

@@ -12,7 +12,7 @@
 
     <!-- ADRESSE -->
     <div class="bg-white rounded-2xl p-5" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
-      <h2 class="font-bold text-secondary mb-4">📍 Adresse de livraison</h2>
+      <h2 class="font-bold text-secondary mb-4"> Adresse de livraison</h2>
       <div class="flex gap-2 mb-4">
         <button (click)="modeAdresse.set('carte')" class="flex-1 py-2 rounded-full text-xs font-bold border-2 cursor-pointer transition-all" [class]="modeAdresse()==='carte'?'border-primary bg-primary text-white':'border-gray-200 bg-white text-muted'">🗺️ GPS</button>
         <button (click)="modeAdresse.set('manuel')" class="flex-1 py-2 rounded-full text-xs font-bold border-2 cursor-pointer transition-all" [class]="modeAdresse()==='manuel'?'border-primary bg-primary text-white':'border-gray-200 bg-white text-muted'">Manuel</button>
@@ -20,6 +20,12 @@
 
       @if (modeAdresse() === 'carte') {
         <app-map-picker (positionChoisie)="onPositionChoisie($event)"/>
+
+        <button type="button" (click)="passerEnManuel()"
+                class="mt-3 w-full py-2.5 rounded-xl border border-dashed border-gray-300 bg-gray-50 text-xs font-bold text-secondary hover:border-primary hover:bg-primary/5 transition-colors">
+           Continuer sans GPS → saisir manuellement
+        </button>
+
         @if (positionGPS()) {
           <div class="mt-3 space-y-3">
             <div class="space-y-1.5">
@@ -83,7 +89,7 @@
 
     <!-- PAIEMENT -->
     <div class="bg-white rounded-2xl p-5" style="box-shadow:0 1px 6px rgba(0,0,0,0.06)">
-      <h2 class="font-bold text-secondary mb-4">💳 Mode de paiement</h2>
+      <h2 class="font-bold text-secondary mb-4"> Mode de paiement</h2>
       <div class="space-y-2">
         @for (mode of modes; track mode.value) {
           <button (click)="modePaiement.set(mode.value)" class="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer text-left transition-all" [class]="modePaiement()===mode.value?'border-primary bg-primary/5':'border-gray-100 hover:border-gray-200'">

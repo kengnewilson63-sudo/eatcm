@@ -10,7 +10,9 @@ export class PlatService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/plats`;
 
-  private static MOCK_PLATS: Plat[] = [
+  private static KEY_PLATS = 'eatscm_mock_plats';
+
+  private static MOCK_PLATS: Plat[] = PlatService.chargerPlatsPersistes() ?? [
     {
       id: 1,
       restaurantId: 1,
@@ -40,6 +42,24 @@ export class PlatService {
       likes: 512,
     },
   ];
+
+  /**
+   * Recharge les plats ajoutés depuis localStorage (session précédente).
+   * Sans backend, c'est ce qui permet au menu de survivre au rafraîchissement.
+   */
+  private static chargerPlatsPersistes(): Plat[] | null {
+    try {
+      const raw = localStorage.getItem(PlatService.KEY_PLATS);
+      return raw ? JSON.parse(raw) as Plat[] : null;
+    } catch { return null; }
+  }
+
+  /** Persiste la liste courante (mode sans backend). */
+  private static persister(): void {
+    try {
+      localStorage.setItem(PlatService.KEY_PLATS, JSON.stringify(PlatService.MOCK_PLATS));
+    } catch { /* stockage indisponible : on reste en mémoire */ }
+  }
 
   getPlats(restaurantId: number): Observable<Plat[]> {
     return this.http.get<Plat[]>(`${this.apiUrl}?restaurantId=${restaurantId}`).pipe(
@@ -72,6 +92,7 @@ export class PlatService {
           likes: data.likes ?? 0,
         };
         PlatService.MOCK_PLATS = [plat, ...PlatService.MOCK_PLATS];
+        PlatService.persister();
         return of(plat);
       })
     );
@@ -84,6 +105,7 @@ export class PlatService {
         if (index === -1) return of({ ...data, id } as Plat);
         const updated = { ...PlatService.MOCK_PLATS[index], ...data, id } as Plat;
         PlatService.MOCK_PLATS[index] = updated;
+        PlatService.persister();
         return of(updated);
       })
     );
@@ -95,6 +117,7 @@ export class PlatService {
         const index = PlatService.MOCK_PLATS.findIndex(p => p.id === id);
         if (index === -1) return of({} as Plat);
         PlatService.MOCK_PLATS[index] = { ...PlatService.MOCK_PLATS[index], disponible };
+        PlatService.persister();
         return of(PlatService.MOCK_PLATS[index]);
       })
     );
@@ -104,6 +127,7 @@ export class PlatService {
     return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
       catchError(() => {
         PlatService.MOCK_PLATS = PlatService.MOCK_PLATS.filter(p => p.id !== id);
+        PlatService.persister();
         return of(void 0);
       })
     );

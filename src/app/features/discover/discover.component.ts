@@ -82,12 +82,30 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /**
+   * Images de secours : la base ne contient pas encore de visuels, on évite
+   * donc les balises <img>/<video> vides (images cassées) en attendant que
+   * les restaurants uploadent leurs propres fichiers.
+   */
+  private static readonly LOGO_DEFAUT =
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=80&q=80';
+  private static readonly VIDEO_DEFAUT =
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  private static readonly IMAGES_PLATS = [
+    'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=800&q=80',
+    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80',
+    'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80',
+    'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80',
+  ];
+
   private mapPlatToFeed(plat: Plat, restaurant: Restaurant): VideoFeed {
     return {
       id: plat.id,
       restaurantId: restaurant.id,
       restaurantNom: restaurant.nom,
-      restaurantLogo: restaurant.logoUrl || '',
+      // Un restaurant nouvellement inscrit n'a ni logo ni bannière :
+      // on retombe sur une image neutre plutôt qu'une balise vide.
+      restaurantLogo: restaurant.logoUrl || restaurant.banniereUrl || DiscoverComponent.LOGO_DEFAUT,
       platNom: plat.nom,
       platDescription: plat.description || '',
       prix: plat.prix,
@@ -95,9 +113,11 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
       likes: plat.likes || 0,
       commentaires: [],
       partages: 0,
-      videoUrl: plat.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      videoUrl: plat.videoUrl || DiscoverComponent.VIDEO_DEFAUT,
       videoType: 'upload',
       liked: false,
+      imageUrl: plat.imageUrl
+        || DiscoverComponent.IMAGES_PLATS[plat.id % DiscoverComponent.IMAGES_PLATS.length],
     };
   }
 
@@ -180,6 +200,15 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
     this.videoSvc.toggleLike(videoId);
   }
 
+  /**
+   * Une URL d'image peut être morte (lien externe, fichier supprimé) :
+   * on masque alors l'image plutôt que d'afficher l'icône "image cassée".
+   */
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    img.style.visibility = 'hidden';
+  }
+
   ouvrirCommentaires(video: VideoFeed): void {
     this.activeComments.set([...video.commentaires]);
     this.activeVideoId.set(video.id);
@@ -211,7 +240,8 @@ export class DiscoverComponent implements OnInit, AfterViewInit, OnDestroy {
       date: "à l'instant",
     };
 
-    this.videoSvc.ajouterCommentaire(videoId, newC);
+    // Le service met aussi à jour le signal local (repli optimiste).
+    this.videoSvc.ajouterCommentaire(videoId, newC).subscribe();
     this.activeComments.update(c => [...c, newC]);
     this.nouveauComment.set('');
 

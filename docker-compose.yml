@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: eatscm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eatscm_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: eatscm123
+    # INDISPENSABLE : publie 5432 sur l'hôte pour que le backend lancé
+    # depuis IntelliJ (sur macOS) puisse joindre la base.
+    ports:
+      - "5432:5432"
+    volumes:
+      - eatscm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d eatscm_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  eatscm_pgdata:

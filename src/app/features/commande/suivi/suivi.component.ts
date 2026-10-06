@@ -4,7 +4,6 @@ import { CommonModule } from '@angular/common';
 import { TrackingMapComponent } from '../../../shared/components/tracking-map/tracking-map.component';
 import { AnnulationCommandeComponent } from '../../../shared/components/annulation-commande/annulation-commande.component';
 import { StatutCommande, ModePaiement } from '../../../core/models';
-import { NotificationPushService } from '../../../core/services/notificationpush.service';
 import { NotationComponent } from '../../../shared/components/notation/ notation.component';
 
 
@@ -28,7 +27,6 @@ interface EtapeSuivi {
 })
 export class SuiviComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private notifPush = inject(NotificationPushService);
 
   commandeId = signal<number | null>(null);
   statutActuel = signal<StatutCommande>('EN_ATTENTE');
@@ -81,9 +79,6 @@ export class SuiviComponent implements OnInit {
       );
       if (current === 'LIVREE') {
         setTimeout(() => this.modalNotation.set(true), 2000);
-      }
-      if (this.commandeId()) {
-        this.notifPush.notifierChangementStatut(this.commandeId()!, current);
       }
       idx++;
     }, 8000);

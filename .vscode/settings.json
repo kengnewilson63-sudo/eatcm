@@ -1,0 +1,8 @@
+{
+  "extensions.ignoreRecommendations": false,
+  "workbench.startupEditor": "none",
+  "files.exclude": {
+    "**/.git": true,
+    "**/node_modules": true
+  }
+}

@@ -16,9 +16,12 @@
               @if (!r.actif) { <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold">Suspendu</span> }
             </div>
             <p class="text-xs text-muted">{{r.ville}} • Note : {{r.note}}</p>
+            @if (r.telephone) { <p class="text-xs text-muted">📞 {{r.telephone}}</p> }
+            @if (!r.actif) { <p class="text-xs text-amber-600 font-semibold mt-1">⏳ En attente de validation — clique sur « Activer » pour le publier sur l'accueil</p> }
             @if (r.commissionDue > 0) { <p class="text-xs text-amber-600 font-semibold mt-1">⚠ Commission due : {{r.commissionDue | number}} FCFA</p> }
           </div>
           <div class="flex gap-2 flex-shrink-0">
+            <button (click)="voirDossier(r.id)" class="px-3 py-1.5 rounded-lg bg-gray-100 text-secondary text-xs font-bold border-none cursor-pointer">🔍 Vérifier</button>
             @if (!r.certifie) { <button (click)="certifier(r.id)" class="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold border-none cursor-pointer">Certifier</button> }
             <button (click)="toggleActif(r.id)" class="px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer" [class]="r.actif ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'">{{r.actif?'Suspendre':'Activer'}}</button>
           </div>
@@ -26,4 +29,82 @@
       </div>
     }
   </div>
+
+  <!-- ===== MODAL DOSSIER DE VÉRIFICATION ===== -->
+  @if (chargementDossier() || dossier() || erreurDossier()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)" (click)="fermerDossier()">
+      <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" (click)="$event.stopPropagation()">
+
+        @if (chargementDossier()) {
+          <p class="text-center text-muted py-8">Chargement du dossier…</p>
+        }
+
+        @if (erreurDossier()) {
+          <p class="text-center text-red-600 py-8">{{erreurDossier()}}</p>
+          <button (click)="fermerDossier()" class="w-full py-2 rounded-lg bg-gray-100 text-secondary font-bold border-none cursor-pointer">Fermer</button>
+        }
+
+        @if (dossier(); as d) {
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h2 class="text-xl font-extrabold text-secondary">{{d.nom}}</h2>
+              <p class="text-xs text-muted">Dossier de vérification avant validation</p>
+            </div>
+            <button (click)="fermerDossier()" class="text-muted text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+          </div>
+
+          <!-- Coordonnées -->
+          <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+            <div><span class="text-muted">Téléphone :</span> <strong>{{d.telephone || '—'}}</strong></div>
+            <div><span class="text-muted">MoMo :</span> <strong>{{d.numeroMoMo || '—'}}</strong></div>
+            <div><span class="text-muted">Ville :</span> <strong>{{d.ville || '—'}}</strong></div>
+            <div><span class="text-muted">Quartier :</span> <strong>{{d.quartier || '—'}}</strong></div>
+            <div class="col-span-2"><span class="text-muted">Propriétaire :</span> <strong>{{d.proprietaireNom}} ({{d.proprietaireEmail}})</strong></div>
+            <div class="col-span-2"><span class="text-muted">Statut du compte :</span>
+              <strong [class]="d.proprietaireStatut === 'EN_ATTENTE_VALIDATION' ? 'text-amber-600' : 'text-green-700'">{{d.proprietaireStatut}}</strong>
+            </div>
+          </div>
+
+          <!-- Photos de vérification -->
+          <p class="text-xs font-bold text-muted uppercase mb-2">Pièces justificatives</p>
+          <div class="grid grid-cols-3 gap-3 mb-5">
+            <div>
+              <p class="text-xs text-muted mb-1">Façade</p>
+              @if (d.photoFacade) {
+                <img [src]="d.photoFacade" alt="Façade" class="w-full h-28 object-cover rounded-lg border border-gray-200"/>
+              } @else {
+                <div class="w-full h-28 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-muted">Non fournie</div>
+              }
+            </div>
+            <div>
+              <p class="text-xs text-muted mb-1">CNI recto</p>
+              @if (d.cniRecto) {
+                <img [src]="d.cniRecto" alt="CNI recto" class="w-full h-28 object-cover rounded-lg border border-gray-200"/>
+              } @else {
+                <div class="w-full h-28 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-muted">Non fournie</div>
+              }
+            </div>
+            <div>
+              <p class="text-xs text-muted mb-1">CNI verso</p>
+              @if (d.cniVerso) {
+                <img [src]="d.cniVerso" alt="CNI verso" class="w-full h-28 object-cover rounded-lg border border-gray-200"/>
+              } @else {
+                <div class="w-full h-28 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-muted">Non fournie</div>
+              }
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3">
+            <button (click)="fermerDossier()" class="flex-1 py-2.5 rounded-lg bg-gray-100 text-secondary font-bold border-none cursor-pointer">Fermer</button>
+            @if (!d.actif) {
+              <button (click)="validerDepuisDossier(d.id)" class="flex-1 py-2.5 rounded-lg text-white font-bold border-none cursor-pointer" style="background:#22c55e">✓ Valider et publier</button>
+            } @else {
+              <button (click)="validerDepuisDossier(d.id)" class="flex-1 py-2.5 rounded-lg bg-red-100 text-red-700 font-bold border-none cursor-pointer">Suspendre</button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
 </div>

@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "frontend-eatscm2"
+    },
+    {
+      "path": "../backend 2",
+      "name": "backend-2"
+    }
+  ],
+  "settings": {
+    // Add workspace-specific settings here, if needed.
+  }
+}

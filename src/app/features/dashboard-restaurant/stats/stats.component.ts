@@ -1,15 +1,40 @@
-import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, OnInit, inject } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { RestaurantService, RestaurantStats } from '../../../core/services/restaurant.service';
+import { NotificationService } from '../../../core/services/notification.service';
+
 @Component({ selector:'app-dr-stats', imports:[CommonModule, DecimalPipe], templateUrl:'./stats.component.html', changeDetection:ChangeDetectionStrategy.OnPush })
-export class StatsComponent {
-  stats = signal({ revenuTotal:125500, commandesTotal:48, noteMoyenne:4.8, tauxAcceptation:96, commissionDue:0 });
-  ventes = signal([
-    {jour:'Lun',revenus:18500,commandes:7},{jour:'Mar',revenus:22000,commandes:9},{jour:'Mer',revenus:15000,commandes:6},
-    {jour:'Jeu',revenus:28000,commandes:11},{jour:'Ven',revenus:32000,commandes:13},{jour:'Sam',revenus:45000,commandes:18},{jour:'Dim',revenus:38000,commandes:15},
-  ]);
-  platsTop = signal([
-    {nom:'Ndolé au poisson fumé',commandes:34,revenus:119000},{nom:'Brochettes de bœuf',commandes:28,revenus:70000},{nom:'Poulet DG',commandes:19,revenus:95000},
-  ]);
+export class StatsComponent implements OnInit {
+  private restoSvc = inject(RestaurantService);
+  private notif = inject(NotificationService);
+
+  loading = signal(true);
+
+  stats = signal<RestaurantStats>({
+    revenuTotal: 0, commandesTotal: 0, commandesEnCours: 0, noteMoyenne: 0,
+    tauxAcceptation: 0, commissionDue: 0, panierMoyen: 0, ventes: [], platsTop: [],
+  });
+
+  ventes = signal<{ jour: string; revenus: number; commandes: number }[]>([]);
+  platsTop = signal<{ nom: string; commandes: number; revenus: number }[]>([]);
+
+  ngOnInit(): void {
+    this.restoSvc.getStats().subscribe({
+      next: s => {
+        this.stats.set(s);
+        this.ventes.set(s.ventes ?? []);
+        this.platsTop.set(s.platsTop ?? []);
+        this.loading.set(false);
+      },
+      error: err => {
+        this.loading.set(false);
+        this.notif.error('Impossible de charger les statistiques');
+        console.error(err);
+      }
+    });
+  }
+
   get maxRevenu(): number { return Math.max(...this.ventes().map(v => v.revenus), 1); }
+  get maxPlat(): number { return Math.max(...this.platsTop().map(p => p.commandes), 1); }
   barHeight(r: number): number { return Math.round((r / this.maxRevenu) * 100); }
 }

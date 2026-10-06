@@ -46,7 +46,8 @@
         <!-- Infos plat bas gauche -->
         <div class="info-panel">
           <div class="restaurant-row">
-            <img [src]="video.restaurantLogo" [alt]="video.restaurantNom" class="restaurant-logo"/>
+            <img [src]="video.restaurantLogo" [alt]="video.restaurantNom" class="restaurant-logo"
+                 (error)="onImageError($event)"/>
             <span class="restaurant-name">{{ video.restaurantNom }}</span>
             <a [routerLink]="['/restaurant', video.restaurantId]" class="btn-voir">Voir</a>
           </div>
@@ -165,7 +166,7 @@
         }
         @for (c of activeComments(); track c.id) {
           <div class="comment-item">
-            <img [src]="c.avatar" [alt]="c.auteur" class="comment-avatar"/>
+            <img [src]="c.avatar" [alt]="c.auteur" class="comment-avatar" (error)="onImageError($event)"/>
             <div class="comment-body">
               <div class="comment-meta">
                 <span class="comment-author">{{ c.auteur }}</span>

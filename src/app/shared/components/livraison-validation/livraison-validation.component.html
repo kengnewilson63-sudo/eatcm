@@ -17,7 +17,7 @@
 
   <!-- Étapes -->
   <div class="flex items-center px-5 py-3 bg-gray-50 border-b border-gray-100">
-    @for (s of [['photo','📸 Photo'],['qr','📱 QR Code'],['done','✅ Validé']]; track s[0]; let i = $index) {
+    @for (s of [['photo',' Photo'],['qr','📱 QR Code'],['done','Validé']]; track s[0]; let i = $index) {
       <div class="flex items-center" [class.flex-1]="i < 2">
         <div class="flex items-center gap-1.5">
           <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold transition-all duration-300"

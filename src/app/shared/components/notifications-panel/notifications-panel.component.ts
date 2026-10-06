@@ -1,17 +1,6 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NotificationPushService } from '../../../core/services/notificationpush.service';
-
-export type NotificationType = 'NOUVELLE_COMMANDE' | 'STATUT_COMMANDE' | 'COURSE_DISPONIBLE' | 'GENERAL';
-
-export interface Notification {
-  id: number;
-  type: NotificationType;
-  titre: string;
-  message: string;
-  date: Date;
-  lu: boolean;
-}
 
 @Component({
   selector: 'app-notifications-panel',
@@ -59,16 +48,18 @@ export interface Notification {
             }
             @for (n of svc.notifications(); track n.id) {
               <div class="flex items-start gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer transition-colors group" [class]="n.lu ? 'bg-white hover:bg-gray-50' : 'bg-primary/5 hover:bg-primary/8'" (click)="svc.marquerLue(n.id)">
-                <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-base" [class]="n.type === 'NOUVELLE_COMMANDE' ? 'bg-orange-100' : n.type === 'STATUT_COMMANDE' ? 'bg-blue-100' : n.type === 'COURSE_DISPONIBLE' ? 'bg-green-100' : 'bg-gray-100'">
-                  {{ n.type === 'NOUVELLE_COMMANDE' ? '🍽️' : n.type === 'STATUT_COMMANDE' ? '📦' : n.type === 'COURSE_DISPONIBLE' ? '🛵' : '✅' }}
+                <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-base" [class]="svc.couleurFond(n.type)">
+                  {{ svc.emoji(n.type) }}
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-start justify-between gap-2">
                     <p class="font-bold text-secondary text-sm leading-tight">{{ n.titre }}</p>
                     @if (!n.lu) { <div class="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1"></div> }
                   </div>
-                  <p class="text-xs text-muted mt-0.5 leading-relaxed">{{ n.message }}</p>
-                  <p class="text-[10px] text-muted mt-1 font-medium">{{ svc.formaterDate(n.date) }}</p>
+                  @if (n.message) {
+                    <p class="text-xs text-muted mt-0.5 leading-relaxed">{{ n.message }}</p>
+                  }
+                  <p class="text-[10px] text-muted mt-1 font-medium">{{ svc.formaterDate(n.dateCreation) }}</p>
                 </div>
                 <button (click)="$event.stopPropagation(); svc.supprimerNotification(n.id)" class="w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center border-none bg-transparent cursor-pointer flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   <svg class="w-3 h-3 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -81,11 +72,19 @@ export interface Notification {
     </div>
   `,
 })
-export class NotificationsPanelComponent {
+export class NotificationsPanelComponent implements OnInit {
   svc = inject(NotificationPushService);
   ouvert = signal(false);
 
+  ngOnInit(): void {
+    // Charge les notifications et branche le flux temps réel dès que la cloche
+    // est affichée (navbar), sans attendre son ouverture.
+    this.svc.demarrer();
+  }
+
   toggle(): void {
     this.ouvert.update(v => !v);
+    // Rafraîchit à l'ouverture : le repli polling peut avoir pris du retard.
+    if (this.ouvert()) this.svc.rafraichir();
   }
 }

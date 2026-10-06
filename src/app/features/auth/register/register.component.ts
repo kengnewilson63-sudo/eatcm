@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@ang
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
+import { MapsService } from '../../../core/services/maps.service';
 import { Role } from '../../../core/models';
 
 @Component({
@@ -12,6 +13,7 @@ import { Role } from '../../../core/models';
 })
 export class RegisterComponent implements OnInit {
   private auth = inject(AuthService);
+  private maps = inject(MapsService);
 
   // ========== CONFIG ZONE ==========
   readonly VILLES_AUTORISEES = ['Douala'];
@@ -73,13 +75,10 @@ export class RegisterComponent implements OnInit {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=fr`
-          );
-          if (!res.ok) throw new Error('Nominatim unavailable');
-
-          const data = await res.json();
-          const ville = data.address?.city || data.address?.town || data.address?.state || 'Douala';
+          // Geocodage via Google Maps (MapsService) — plus de Nominatim.
+          await this.maps.geocoderGoogle(pos.coords.latitude, pos.coords.longitude);
+          const position = this.maps.positionSelectionnee();
+          const ville = position?.ville || 'Douala';
           this.villeDetectee.set(ville);
           const autorisee = this.VILLES_AUTORISEES.some(v =>
             ville.toLowerCase().includes(v.toLowerCase())
@@ -233,6 +232,9 @@ export class RegisterComponent implements OnInit {
     this.auth.register(registerData).subscribe({
       next: (res) => {
         this.loading.set(false);
+        // Enregistre la session (token + user) AVANT la redirection :
+        // redirectAfterAuth lit le statut du compte pour décider où aller.
+        this.auth.saveSession(res.token, res.user);
         this.auth.redirectAfterAuth(res.user);
       },
       error: (err) => {

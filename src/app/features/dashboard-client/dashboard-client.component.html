@@ -44,7 +44,7 @@
 
     <!-- Onglets -->
     <div class="flex max-w-2xl mx-auto px-4">
-      @for (o of [['cours','🔄 En cours'],['historique','📦 Historique'],['stats','📊 Stats']]; track o[0]) {
+      @for (o of [['cours',' En cours'],['historique',' Historique'],['stats','Stats']]; track o[0]) {
         <button (click)="onglet.set($any(o[0]))"
                 class="flex-1 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer bg-transparent"
                 [class]="onglet()===o[0]
@@ -132,11 +132,11 @@
             <a [routerLink]="['/suivi', cmd.id]"
                class="flex-1 py-2.5 rounded-xl bg-primary text-white text-xs font-bold
                       text-center no-underline">
-              🗺️ Suivre en direct
+               Suivre en direct
             </a>
             <button class="px-4 py-2.5 rounded-xl bg-gray-50 text-gray-500 text-xs font-bold
                            border-none cursor-pointer hover:bg-gray-100 transition-colors">
-              📞 Contacter
+              Contacter
             </button>
           </div>
         </div>
@@ -244,7 +244,7 @@
           class="flex-1 py-2 rounded-xl bg-amber-50 text-amber-700
                  text-xs font-bold border-none cursor-pointer
                  hover:bg-amber-100 transition-colors">
-    ⭐ Laisser un avis
+     Laisser un avis
   </button>
 }
                   }
@@ -299,7 +299,7 @@
         <!-- Note moyenne -->
         <div class="bg-white rounded-2xl p-5 shadow-card">
           <p class="text-xs font-bold text-muted uppercase tracking-wider mb-3">
-            ⭐ Tes notes moyennes
+             Tes notes moyennes
           </p>
           <div class="flex items-center gap-3">
             <p class="text-4xl font-extrabold text-secondary">

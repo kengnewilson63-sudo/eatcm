@@ -8,10 +8,21 @@
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
 }
 
-#tracking-map {
+div#tracking-map {
   width: 100%;
   height: 100%;
   background: #ebf3ff;
+}
+
+/* Google Maps n'expose pas de classes pour zoom : on cible son conteneur. */
+div#tracking-map .gm-style {
+  font: inherit;
+}
+
+div#tracking-map div[role="button"] {
+  border-radius: 0.9rem !important;
+  overflow: hidden;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12) !important;
 }
 
 @keyframes pulse {
@@ -22,21 +33,4 @@
 .livreur-marker {
   animation: pulse 1.5s ease-in-out infinite;
   transform-origin: center;
-}
-
-.leaflet-control-zoom {
-  border: none !important;
-  border-radius: 0.9rem !important;
-  overflow: hidden;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12) !important;
-}
-
-.leaflet-control-zoom a {
-  color: #0f172a !important;
-  font-weight: 700 !important;
-}
-
-.leaflet-container {
-  font: inherit;
-  background: #edf6ff;
 }

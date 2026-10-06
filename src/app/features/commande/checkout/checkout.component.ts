@@ -53,10 +53,16 @@ export class CheckoutComponent {
 
   onPositionChoisie(pos: PositionGPS): void {
     this.positionGPS.set(pos);
+    this.modeAdresse.set('carte');
     if (pos.ville) this.ville.set(pos.ville);
     if (pos.quartier) this.quartier.set(pos.quartier);
     const distSim = Math.random() * 9 + 1;
     this.fraisLivraison.set(this.cmdSvc.calculerFraisParDistance(distSim));
+  }
+
+  passerEnManuel(): void {
+    this.modeAdresse.set('manuel');
+    this.ville.set(this.ville() || 'Douala');
   }
 
   onVilleChange(e: Event): void {
@@ -80,9 +86,8 @@ export class CheckoutComponent {
     r.readAsDataURL(f);
   }
 
-  // ✅ UN SEUL confirmer() — tout fusionné ici
+  // ✅ Flux robuste : GPS ou manuel, jamais bloqué
   confirmer(): void {
-    // Vérifie preuve si MoMo
     if (
       (this.modePaiement() === 'ORANGE_MONEY' || this.modePaiement() === 'MTN_MOMO')
       && !this.preuvePaiement()
@@ -90,10 +95,22 @@ export class CheckoutComponent {
       alert('Uploade ta preuve de paiement MoMo avant de confirmer.');
       return;
     }
-    if (!this.pointDeRepere() && !this.positionGPS()) {
-      alert('Indique ton adresse ou utilise le GPS.');
+
+    const adresseGpsValide = this.modeAdresse() === 'carte' && !!this.positionGPS() && !!this.pointDeRepere().trim();
+    const adresseManuelleValide = this.modeAdresse() === 'manuel'
+      && !!this.ville().trim()
+      && !!this.quartier().trim()
+      && !!this.pointDeRepere().trim();
+
+    if (!adresseGpsValide && !adresseManuelleValide) {
+      if (this.modeAdresse() === 'manuel') {
+        alert('Précise la ville, le quartier et le point de repère pour finaliser la commande.');
+      } else {
+        alert('Indique ton adresse manuellement ou utilise le GPS, puis précise un point de repère.');
+      }
       return;
     }
+
     this.loading.set(true);
     setTimeout(() => {
       const id = Math.floor(Math.random() * 10000);

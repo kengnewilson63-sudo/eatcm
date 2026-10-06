@@ -1,4 +1,8 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 export interface Commentaire {
   id: number;
@@ -24,6 +28,8 @@ export interface VideoFeed {
   restaurantLogo: string;
   videoUrl: string;
   videoType: 'upload' | 'youtube' | 'vimeo';
+  /** Photo du plat (utilisée en secours si aucune vidéo n'est disponible). */
+  imageUrl?: string;
   likes: number;
   commentaires: Commentaire[];
   partages: number;
@@ -32,6 +38,9 @@ export interface VideoFeed {
 
 @Injectable({ providedIn: 'root' })
 export class VideoService {
+  private http = inject(HttpClient);
+  private api = `${environment.apiUrl}/videos`;
+
   videos = signal<VideoFeed[]>([
     {
       id: 1,
@@ -53,7 +62,7 @@ export class VideoService {
       partages: 38,
       liked: false,
       commentaires: [
-        { id: 1, auteur: 'Paul K.',  avatar: 'https://i.pravatar.cc/40?img=1', texte: 'Trop bon ce ndolé 😍🔥', date: 'il y a 2h' },
+        { id: 1, auteur: 'Paul K.',  avatar: 'https://i.pravatar.cc/40?img=1', texte: 'Trop bon ce ndolé ', date: 'il y a 2h' },
         { id: 2, auteur: 'Marie B.', avatar: 'https://i.pravatar.cc/40?img=2', texte: "J'ai commandé hier, livraison rapide !", date: 'il y a 5h' },
       ],
     },
@@ -72,7 +81,7 @@ export class VideoService {
       partages: 92,
       liked: true,
       commentaires: [
-        { id: 1, auteur: 'Sophie M.', avatar: 'https://i.pravatar.cc/40?img=4', texte: 'Ces brochettes 🔥🔥🔥', date: 'il y a 1h' },
+        { id: 1, auteur: 'Sophie M.', avatar: 'https://i.pravatar.cc/40?img=4', texte: 'Ces brochettes ', date: 'il y a 1h' },
       ],
     },
     {
@@ -90,7 +99,7 @@ export class VideoService {
       partages: 24,
       liked: false,
       commentaires: [
-        { id: 1, auteur: 'Alice N.', avatar: 'https://i.pravatar.cc/40?img=6', texte: "Le poulet DG c'est la vie 😭❤️", date: 'il y a 4h' },
+        { id: 1, auteur: 'Alice N.', avatar: 'https://i.pravatar.cc/40?img=6', texte: "Le poulet DG c'est la vie ", date: 'il y a 4h' },
       ],
     },
     {
@@ -111,15 +120,40 @@ export class VideoService {
     },
   ]);
 
+  /**
+   * Bascule le like côté serveur et met à jour le signal local.
+   * Repli optimiste : le like est appliqué localement si l'API échoue.
+   */
   toggleLike(videoId: number): void {
-    this.videos.update(list => list.map(v =>
-      v.id === videoId
-        ? { ...v, liked: !v.liked, likes: v.liked ? v.likes - 1 : v.likes + 1 }
-        : v
-    ));
+    // Optimiste — l'UI réagit immédiatement.
+    this.videos.update(list => list.map(v => this.basculerLike(v, videoId)));
+
+    this.http.post<void>(`${this.api}/${videoId}/like`, {}).subscribe({
+      error: () => { /* le like local reste appliqué */ },
+    });
   }
 
-  ajouterCommentaire(videoId: number, commentaire: Commentaire): void {
+  private basculerLike(v: VideoFeed, videoId: number): VideoFeed {
+    if (v.id !== videoId) return v;
+    return { ...v, liked: !v.liked, likes: v.liked ? v.likes - 1 : v.likes + 1 };
+  }
+
+  /**
+   * Ajoute un commentaire côté serveur et localement.
+   * Le backend renvoie le commentaire persisté (avec son id définitif).
+   */
+  ajouterCommentaire(videoId: number, commentaire: Commentaire): Observable<Commentaire> {
+    return this.http.post<Commentaire>(`${this.api}/${videoId}/commentaires`, commentaire).pipe(
+      tap(created => this.insererCommentaire(videoId, created)),
+      catchError(() => {
+        // Repli local : le commentaire reste visible côté client.
+        this.insererCommentaire(videoId, commentaire);
+        return of(commentaire);
+      })
+    );
+  }
+
+  private insererCommentaire(videoId: number, commentaire: Commentaire): void {
     this.videos.update(list => list.map(v =>
       v.id === videoId
         ? { ...v, commentaires: [...v.commentaires, commentaire] }

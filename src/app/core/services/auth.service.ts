@@ -1,10 +1,11 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, Injector } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap, map, catchError } from 'rxjs/operators';
-import { Observable, of } from 'rxjs';
+import { tap, map } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import { User, Role } from '../models';
 import { environment } from '../../../environments/environment';
+import { NotificationPushService } from './notificationpush.service';
 
 const USER_KEY = 'eatscm_user_session';
 const TOKEN_KEY = 'eatscm_token';
@@ -18,7 +19,7 @@ interface BackendAuthResponse {
   email: string;
   telephone: string;
   role: Role;
-  statut: string;  // 🔥 AJOUTÉ
+  statut: string; 
   typeLivreur: string | null;
   restaurantProprietaireId: number | null;
   avatar: string | null;
@@ -29,6 +30,13 @@ interface BackendAuthResponse {
 export class AuthService {
   private http   = inject(HttpClient);
   private router = inject(Router);
+  // Résolu paresseusement (voir notifPush()) pour casser le cycle
+  // AuthService → NotificationPushService → TrackingGateway → AuthService.
+  private injector = inject(Injector);
+
+  private get notifPush(): NotificationPushService {
+    return this.injector.get(NotificationPushService);
+  }
 
   private _token = signal<string | null>(sessionStorage.getItem(TOKEN_KEY));
   private _user  = signal<User | null>(this._loadUserFromSession());
@@ -45,12 +53,7 @@ export class AuthService {
       })
       .pipe(
         map(res => this._mapBackendResponse(res)),
-        tap(mapped => this.saveSession(mapped.token, mapped.user)),
-        catchError(() => {
-          const fallback = this._buildFallbackSession(email, motDePasse);
-          this.saveSession(fallback.token, fallback.user);
-          return of(fallback);
-        })
+        tap(mapped => this.saveSession(mapped.token, mapped.user))
       );
   }
 
@@ -61,22 +64,15 @@ export class AuthService {
     };
     return this.http
       .post<BackendAuthResponse>(`${environment.apiUrl}/auth/register`, payload)
-      .pipe(
-        map(res => this._mapBackendResponse(res)),
-        tap(mapped => this.saveSession(mapped.token, mapped.user)),
-        catchError(() => {
-          const fallback = this._buildFallbackSession(payload.email, payload.motDePasse, payload.role ?? 'CLIENT', payload.nomRestaurant ?? payload.nom ?? 'Utilisateur');
-          this.saveSession(fallback.token, fallback.user);
-          return of(fallback);
-        })
-      );
+      .pipe(map(res => this._mapBackendResponse(res)));
   }
 
   redirectAfterAuth(user: User): void {
-    if (
-      (user.role === 'RESTAURANT' || user.role === 'LIVREUR') &&
-      user.statut === 'EN_ATTENTE'
-    ) {
+    // Le backend renvoie EN_ATTENTE_VALIDATION (ancien nom : EN_ATTENTE) pour
+    // les comptes RESTAURANT/LIVREUR créés mais pas encore validés par l'admin.
+    const enAttente = user.statut === 'EN_ATTENTE_VALIDATION'
+      || user.statut === 'EN_ATTENTE';
+    if ((user.role === 'RESTAURANT' || user.role === 'LIVREUR') && enAttente) {
       this.router.navigate(['/auth/en-attente-validation']);
       return;
     }
@@ -127,9 +123,13 @@ export class AuthService {
     sessionStorage.setItem(TOKEN_KEY, token);
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
     this._user.set(user);
+    // Nouvelle session : on repart d'une liste vide puis on rebranche le flux.
+    this.notifPush.arreter();
+    this.notifPush.demarrer();
   }
 
   logout(): void {
+    this.notifPush.arreter();
     this._token.set(null);
     this._user.set(null);
     sessionStorage.removeItem(TOKEN_KEY);
@@ -146,24 +146,6 @@ export class AuthService {
       const raw = sessionStorage.getItem(USER_KEY);
       return raw ? JSON.parse(raw) as User : null;
     } catch { return null; }
-  }
-
-  private _buildFallbackSession(email: string, motDePasse: string, role: Role = 'CLIENT', nom: string = 'Utilisateur'): { token: string; user: User } {
-    const normalizedEmail = email.trim().toLowerCase();
-    const fallbackRole: Role = role === 'RESTAURANT' || role === 'LIVREUR' || role === 'ADMIN' ? role : 'CLIENT';
-    const user: User = {
-      id: Date.now(),
-      prenom: fallbackRole === 'RESTAURANT' ? 'Restaurant' : (fallbackRole === 'LIVREUR' ? 'Livreur' : 'Demo'),
-      nom: nom || (fallbackRole === 'RESTAURANT' ? 'Compte' : 'Utilisateur'),
-      email: normalizedEmail || 'demo@eatscm.cm',
-      telephone: '+237600000000',
-      role: fallbackRole,
-      statut: fallbackRole === 'CLIENT' ? 'ACTIF' : 'ACTIF',
-      actif: true,
-      dateCreation: new Date().toISOString(),
-      avatar: null,
-    };
-    return { token: `mock_token_${fallbackRole.toLowerCase()}_${Date.now()}`, user };
   }
 
   private _mapBackendResponse(res: BackendAuthResponse): { token: string; user: User } {

@@ -1,17 +1,10 @@
-import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { AdminService } from '../../../core/services/admin.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { Litige } from '../../../core/models';
 
-type StatutLitige = 'OUVERT' | 'EN_TRAITEMENT' | 'RESOLU' | 'FERME';
-
-interface Litige {
-  id: number;
-  commandeId: number;
-  client: string;
-  type: string;
-  statut: StatutLitige;
-  date: string;
-  description: string;
-}
+type StatutLitige = Litige['statut'];
 
 @Component({
   selector: 'app-admin-litiges',
@@ -19,19 +12,38 @@ interface Litige {
   templateUrl: './litiges.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LitigesComponent {
-  litiges = signal<Litige[]>([
-    { id: 1, commandeId: 1001, client: 'Paul Kamga',   type: 'PLAT_MANQUANT',       statut: 'OUVERT',        date: '2025-01-15T10:30:00', description: 'Il manque un plat dans ma commande' },
-    { id: 2, commandeId: 1002, client: 'Marie Biya',   type: 'RETARD',              statut: 'EN_TRAITEMENT', date: '2025-01-15T11:00:00', description: 'Livraison en retard de 2h' },
-    { id: 3, commandeId: 1003, client: 'Eric Tchoupo', type: 'PAIEMENT_FRAUDULEUX', statut: 'RESOLU',        date: '2025-01-14T09:00:00', description: 'Tentative de fraude au paiement MoMo' },
-  ]);
+export class LitigesComponent implements OnInit {
+  private adminSvc = inject(AdminService);
+  private notif = inject(NotificationService);
+
+  litiges = signal<Litige[]>([]);
+
+  ngOnInit(): void {
+    this.adminSvc.getLitiges().subscribe({
+      next: data => this.litiges.set(data ?? []),
+      error: () => { /* liste vide conservée */ },
+    });
+  }
 
   resoudre(id: number): void {
-    this.litiges.update(l => l.map(x => x.id === id ? { ...x, statut: 'RESOLU' } : x));
+    this.changerStatut(id, 'RESOLU', 'Litige résolu.');
   }
 
   fermer(id: number): void {
-    this.litiges.update(l => l.map(x => x.id === id ? { ...x, statut: 'FERME' } : x));
+    this.changerStatut(id, 'FERME', 'Litige fermé.');
+  }
+
+  private changerStatut(id: number, statut: StatutLitige, message: string): void {
+    // Optimiste : l'UI réagit tout de suite, on annule si le serveur refuse.
+    const precedent = this.litiges();
+    this.litiges.update(l => l.map(x => x.id === id ? { ...x, statut } : x));
+    this.adminSvc.changerStatutLitige(id, statut).subscribe({
+      next: () => this.notif.success(message),
+      error: () => {
+        this.litiges.set(precedent);
+        this.notif.error('Erreur lors de la mise à jour du litige.');
+      },
+    });
   }
 
   badgeClass(s: string): string {

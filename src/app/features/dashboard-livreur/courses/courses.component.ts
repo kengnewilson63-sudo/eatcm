@@ -1,10 +1,11 @@
 import { Component, ChangeDetectionStrategy, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { LivraisonValidationComponent } from '../../../shared/components/livraison-validation/livraison-validation.component';
-import { NotificationPushService } from '../../../core/services/notificationpush.service';
 import { TrackingService } from '../../../core/services/tracking.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { MoyenTransport } from '../../../core/models';
+import { LivreurService } from '../../../core/services/livreur.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { Commande, MoyenTransport } from '../../../core/models';
 
 interface Course {
   id: number;
@@ -28,8 +29,9 @@ interface Course {
 })
 export class CoursesComponent implements OnInit {
   private tracking  = inject(TrackingService);
-  private notifPush = inject(NotificationPushService);
   private auth      = inject(AuthService);
+  private livreurApi = inject(LivreurService);
+  private notif     = inject(NotificationService);
 
   // Tracking
   readonly estEnTracking  = this.tracking.estEnTracking;
@@ -97,29 +99,69 @@ export class CoursesComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.courses.set([
-      // restaurantId 1 = Chez Maman Bibiane
-      { id: 2001, restaurantId: 1, restaurantNom: 'Chez Maman Bibiane', restaurantAdresse: 'Akwa, Douala',      clientNom: 'Paul Kamga',   clientAdresse: 'Bonamoussadi, Douala', montantLivraison: 1500, distanceKm: 3.2, statut: 'DISPONIBLE', modePaiement: 'MTN_MOMO',     dateCreation: new Date().toISOString() },
-      // restaurantId 2 = Le Grill Akwa
-      { id: 2002, restaurantId: 2, restaurantNom: 'Le Grill Akwa',      restaurantAdresse: 'Akwa, Douala',      clientNom: 'Marie Biya',   clientAdresse: 'Makepe, Douala',      montantLivraison: 2500, distanceKm: 6.8, statut: 'DISPONIBLE', modePaiement: 'CASH',         dateCreation: new Date().toISOString() },
-      // restaurantId 3 = Pizza Roma
-      { id: 2003, restaurantId: 3, restaurantNom: 'Pizza Roma',         restaurantAdresse: 'Bonapriso, Douala', clientNom: 'Eric Tchoupo', clientAdresse: 'Bali, Douala',        montantLivraison: 1000, distanceKm: 1.5, statut: 'EN_COURS',   modePaiement: 'ORANGE_MONEY', dateCreation: new Date().toISOString() },
-      { id: 2004, restaurantId: 1, restaurantNom: 'Sweet Burger',       restaurantAdresse: 'Deido, Douala',     clientNom: 'Sophie Nkolo', clientAdresse: 'Logpom, Douala',      montantLivraison: 2500, distanceKm: 7.2, statut: 'LIVREE',     modePaiement: 'CASH',         dateCreation: new Date().toISOString() },
-    ]);
+    this.chargerCourses();
+  }
 
-    // Simule une nouvelle course après 8s
-    setTimeout(() => {
-      this.notifPush.notifierCourseDisponible(2005, 'Chez Maman Bibiane', 2500, 4.2);
-    }, 8000);
+  /** Charge les courses disponibles + celles en cours depuis le backend. */
+  chargerCourses(): void {
+    this.livreurApi.getCoursesDisponibles().subscribe({
+      next: dispo => this.courses.update(l => [
+        ...l.filter(c => c.statut !== 'DISPONIBLE'),
+        ...dispo.map(d => this.versCourse(d.commande, d.distanceKm ?? 0, 'DISPONIBLE')),
+      ]),
+      error: () => this.notif.error('Impossible de charger les courses disponibles'),
+    });
+
+    this.livreurApi.getCoursesEnCours().subscribe({
+      next: encours => this.courses.update(l => [
+        ...l.filter(c => c.statut !== 'ACCEPTEE' && c.statut !== 'EN_COURS'),
+        ...encours.map(c => this.versCourse(
+          c, 0,
+          c.statut === 'EN_LIVRAISON' ? 'EN_COURS' : 'ACCEPTEE'
+        )),
+      ]),
+      error: () => this.notif.error('Impossible de charger les courses en cours'),
+    });
+
+    this.livreurApi.getHistorique().subscribe({
+      next: histo => this.courses.update(l => [
+        ...l.filter(c => c.statut !== 'LIVREE'),
+        ...histo
+          .filter(c => c.statut === 'LIVREE')
+          .map(c => this.versCourse(c, 0, 'LIVREE')),
+      ]),
+      error: () => { /* historique non critique */ },
+    });
+  }
+
+  /** Mappe une Commande backend vers le modèle d'affichage local. */
+  private versCourse(c: any, distanceKm: number, statut: Course['statut']): Course {
+    const adr = c.adresseLivraison ?? {};
+    const quartiers = [adr.quartier, adr.ville].filter(Boolean).join(', ');
+    return {
+      id: c.id,
+      restaurantId: c.restaurantId ?? c.restaurant?.id ?? 0,
+      restaurantNom: c.restaurant?.nom ?? c.restaurantNom ?? 'Restaurant',
+      restaurantAdresse: c.restaurant?.adresse ?? '',
+      clientNom: c.client ? `${c.client.prenom ?? ''} ${c.client.nom ?? ''}`.trim() : 'Client',
+      clientAdresse: adr.pointDeRepere || quartiers || 'Adresse à confirmer',
+      montantLivraison: c.fraisLivraison ?? 0,
+      distanceKm,
+      statut,
+      modePaiement: c.modePaiement ?? 'CASH',
+      dateCreation: c.dateCreation ?? new Date().toISOString(),
+    };
   }
 
   // Toggle disponibilité + GPS
   toggleDisponibilite(): void {
     if (this.statutLivreur() === 'HORS_LIGNE') {
-      this.tracking.demarrerTracking(3);
+      const idLivreur = this.auth.currentUser()?.id ?? 0;
+      this.tracking.demarrerTracking(idLivreur);
       this.tracking.setStatut('DISPONIBLE');
     } else {
       this.tracking.arreterTracking();
+      this.tracking.setStatut('HORS_LIGNE');
     }
   }
 
@@ -128,27 +170,41 @@ export class CoursesComponent implements OnInit {
   }
 
   accepterCourse(course: Course): void {
-    this.courses.update(l => l.map(c =>
-      c.id === course.id ? { ...c, statut: 'ACCEPTEE' as const } : c
-    ));
-    // Passe en statut EN_COURSE
-    this.tracking.setStatut('EN_COURSE');
-    this.onglet.set('EN_COURS');
+    this.livreurApi.accepterCourse(course.id).subscribe({
+      next: () => {
+        this.courses.update(l => l.map(c =>
+          c.id === course.id ? { ...c, statut: 'ACCEPTEE' as const } : c
+        ));
+        this.tracking.setStatut('EN_COURSE');
+        this.onglet.set('EN_COURS');
+      },
+      error: err => this.notif.error(
+        err?.error?.message || 'Cette course a déjà été prise'
+      ),
+    });
   }
 
   demarrerLivraison(course: Course): void {
-    this.courses.update(l => l.map(c =>
-      c.id === course.id ? { ...c, statut: 'EN_COURS' as const } : c
-    ));
+    this.livreurApi.changerStatutCourse(course.id, 'EN_LIVRAISON').subscribe({
+      next: () => this.courses.update(l => l.map(c =>
+        c.id === course.id ? { ...c, statut: 'EN_COURS' as const } : c
+      )),
+      error: () => this.notif.error('Impossible de démarrer la livraison'),
+    });
   }
 
   terminerLivraison(course: Course): void {
-    this.courses.update(l => l.map(c =>
-      c.id === course.id ? { ...c, statut: 'LIVREE' as const } : c
-    ));
-    // Redevient disponible après livraison
-    this.tracking.setStatut('DISPONIBLE');
-    this.onglet.set('LIVREE');
+    this.livreurApi.changerStatutCourse(course.id, 'LIVREE').subscribe({
+      next: () => {
+        this.courses.update(l => l.map(c =>
+          c.id === course.id ? { ...c, statut: 'LIVREE' as const } : c
+        ));
+        // Redevient disponible après livraison
+        this.tracking.setStatut('DISPONIBLE');
+        this.onglet.set('LIVREE');
+      },
+      error: () => this.notif.error('Impossible de valider la livraison'),
+    });
   }
 
   ouvrirValidation(course: Course): void {

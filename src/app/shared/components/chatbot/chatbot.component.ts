@@ -1,5 +1,6 @@
-import { Component, ChangeDetectionStrategy, signal, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { environment } from '../../../../environments/environment';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -29,22 +30,13 @@ export class ChatbotComponent {
     }
   ]);
 
-  readonly SYSTEM_PROMPT = `Tu es l'assistant virtuel d'EatsCM, une application de livraison de repas au Cameroun (Douala et Yaoundé).
-
-Tu aides les utilisateurs avec :
-- Trouver des restaurants par quartier ou type de cuisine camerounaise (ndolé, poulet DG, brochettes, eru...)
-- Passer et suivre une commande
-- Comprendre les modes de paiement (Orange Money, MTN MoMo, Cash)
-- Frais de livraison : 0-3km = 1000 FCFA, 3-6km = 1500 FCFA, 6-10km = 2500 FCFA
-- Gérer leur compte (client, restaurant, livreur)
-- Résoudre les problèmes de livraison
-- Annuler une commande (gratuit avant EN_PREPARATION)
-- Comprendre les rôles : CLIENT commande, RESTAURANT vend, LIVREUR livre
-
-Réponds toujours en français, de façon concise et amicale.
-Si tu ne sais pas quelque chose, dis-le honnêtement.
-Ne réponds qu'aux questions liées à EatsCM et à la livraison de repas.
-Réponds en maximum 3 phrases sauf si l'utilisateur demande plus de détails.`;
+  /**
+   * L'appel au modèle se fait via le backend (`POST /api/chatbot`).
+   * Appeler api.anthropic.com directement depuis le navigateur était bloqué
+   * par CORS et exposerait la clé API — le system prompt vit donc côté serveur
+   * (voir ChatbotService.java).
+   */
+  private readonly apiChatbot = `${environment.apiUrl}/chatbot`;
 
   toggle(): void {
     this.isOpen.update(v => !v);
@@ -83,23 +75,17 @@ Réponds en maximum 3 phrases sauf si l'utilisateur demande plus de détails.`;
     setTimeout(() => this.scrollBas(), 50);
 
     try {
-      // CORRECTION PRINCIPALE — envoie TOUT l'historique à chaque appel
+      // Envoie TOUT l'historique : le backend gère le system prompt et l'appel au modèle
       const historique = this.messages()
         .map(m => ({
           role: m.role,
           content: m.content,
         }));
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(this.apiChatbot, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 500,
-          system: this.SYSTEM_PROMPT,
-          // ✅ FIX — historique complet, pas juste le dernier message
-          messages: historique,
-        }),
+        body: JSON.stringify({ messages: historique }),
       });
 
       if (!response.ok) {
@@ -107,7 +93,7 @@ Réponds en maximum 3 phrases sauf si l'utilisateur demande plus de détails.`;
       }
 
       const data = await response.json();
-      const reply = data.content?.[0]?.text ?? "Désolé, une erreur s'est produite.";
+      const reply = data.reponse ?? "Désolé, une erreur s'est produite.";
 
       // Ajoute la réponse de l'assistant
       this.messages.update(m => [...m, {
@@ -117,12 +103,48 @@ Réponds en maximum 3 phrases sauf si l'utilisateur demande plus de détails.`;
       }]);
 
     } catch (err) {
-      this.erreur.set('Connexion impossible. Vérifie ta connexion internet.');
-      // Retire le dernier message utilisateur si erreur
+      // Le backend n'est pas encore branché : on répond localement.
+      this.messages.update(m => [...m, {
+        role: 'assistant',
+        content: this.reponseLocale(text),
+        timestamp: new Date(),
+      }]);
     } finally {
       this.loading.set(false);
       setTimeout(() => this.scrollBas(), 50);
     }
+  }
+
+  /**
+   * Repli hors-ligne : petites réponses déterministes par mots-clés, utilisées
+   * tant que `POST /api/chatbot` n'est pas disponible (pas de backend).
+   */
+  private reponseLocale(texte: string): string {
+    const q = texte.toLowerCase();
+    const a = (...mots: string[]) => mots.some(m => q.includes(m));
+
+    if (a('bonjour', 'salut', 'hello', 'bonsoir')) {
+      return '👋 Bonjour ! Je suis l\'assistant EatsCM. Je peux t\'aider à trouver un restaurant, passer une commande ou suivre une livraison. Que veux-tu savoir ?';
+    }
+    if (a('commander', 'commande', 'acheter', 'panier')) {
+      return '🛒 Pour commander : ouvre un restaurant, ajoute des plats au panier, puis va dans le panier et valide le paiement (Mobile Money ou à la livraison).';
+    }
+    if (a('livraison', 'livreur', 'suivi', 'suivre', 'où est')) {
+      return '🛵 La livraison est assurée par un livreur EatsCM. Tu peux suivre sa position en temps réel depuis la page « Suivi de commande » une fois ta commande validée.';
+    }
+    if (a('paiement', 'payer', 'momo', 'mobile money', 'mtn', 'orange')) {
+      return '💳 Le paiement se fait par Mobile Money (MTN MoMo / Orange Money) ou en espèces à la livraison. Le montant est confirmé avant l\'envoi de la commande.';
+    }
+    if (a('restaurant', 'manger', 'plats', 'menu')) {
+      return '🍽️ Tu peux explorer les restaurants depuis l\'accueil ou l\'onglet « Découvrir ». Filtre par catégorie ou par quartier pour trouver ton bonheur.';
+    }
+    if (a('inscription', 'compte', 'inscrire', 'mot de passe', 'connexion')) {
+      return '🔑 Pour créer un compte ou te connecter, utilise les pages « Inscription » et « Connexion ». Un compte Restaurant ou Livreur doit être validé avant d\'être actif.';
+    }
+    if (a('merci', 'thanks')) {
+      return 'Avec plaisir ! 🙌 Bonne dégustation sur EatsCM.';
+    }
+    return 'Je n\'ai pas encore la réponse à cette question (l\'assistant intelligent sera activé avec le backend). En attendant, dis-moi si tu veux de l\'aide pour : commander, la livraison, le paiement, ou trouver un restaurant.';
   }
 
   // Vide la conversation

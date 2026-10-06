@@ -7,67 +7,74 @@ import { Restaurant } from '../models';
 
 export { Restaurant };
 
+/** GET /api/restaurant/stats — miroir de RestaurantStatsResponse. */
+export interface RestaurantStats {
+  revenuTotal: number;
+  commandesTotal: number;
+  commandesEnCours: number;
+  noteMoyenne: number;
+  tauxAcceptation: number;
+  commissionDue: number;
+  panierMoyen: number;
+  ventes: { jour: string; revenus: number; commandes: number }[];
+  platsTop: { nom: string; commandes: number; revenus: number }[];
+}
+
+/** GET /api/restaurant/invitations — invitation d'un livreur interne. */
+export interface InvitationLivreur {
+  id: number;
+  restaurantId: number;
+  livreurNom: string;
+  telephone: string | null;
+  email: string | null;
+  token: string;
+  statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'EXPIREE';
+  dateCreation: string;
+  dateExpiration: string;
+}
+
+/** Réponse de POST /api/restaurant/inviter-livreur. */
+export interface InvitationResult {
+  id: number;
+  token: string;
+  lien: string;
+  mode: string;
+  envoye: boolean;
+  dateExpiration: string;
+  message: string;
+}
+
+/** Réponse de GET /api/admin/restaurants/{id}/dossier. */
+export interface DossierRestaurant {
+  id: number;
+  nom: string;
+  description: string | null;
+  categorie: string | null;
+  adresse: string | null;
+  quartier: string | null;
+  ville: string | null;
+  telephone: string | null;
+  numeroMoMo: string | null;
+  photoFacade: string | null;
+  actif: boolean;
+  certifie: boolean;
+  proprietaireId?: number;
+  proprietaireNom?: string;
+  proprietaireEmail?: string;
+  proprietaireTelephone?: string;
+  proprietaireStatut?: string;
+  cniRecto: string | null;
+  cniVerso: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RestaurantService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/restaurants`;
 
-  private static MOCK_RESTAURANTS: Restaurant[] = [
-    {
-      id: 1,
-      nom: 'Chez Maman Bibiane',
-      description: 'Cuisine camerounaise traditionnelle faite maison.',
-      categorie: 'Traditionnel',
-      adresse: 'Bonanjo',
-      quartier: 'Bonanjo',
-      ville: 'Douala',
-      logoUrl: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80&q=80',
-      banniereUrl: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=1200&q=80',
-      telephone: '+237655000001',
-      numeroMoMo: '655000001',
-      note: 4.8,
-      totalAvis: 128,
-      tempsLivraisonMin: 20,
-      tempsLivraisonMax: 35,
-      fraisLivraison: 1000,
-      ouvert: true,
-      abonnement: 'STANDARD',
-      certifie: true,
-      tauxCommission: 0.1,
-      commissionDueTotal: 0,
-      soldeWallet: 0,
-      modeLivraison: 'MIXTE',
-      actif: true,
-      proprietaireId: 2,
-    },
-    {
-      id: 2,
-      nom: 'Le Grill Akwa',
-      description: 'Grillades et plats chauds à la carte.',
-      categorie: 'Grillades',
-      adresse: 'Akwa',
-      quartier: 'Akwa',
-      ville: 'Douala',
-      logoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=80&q=80',
-      banniereUrl: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&q=80',
-      telephone: '+237655000002',
-      numeroMoMo: '655000002',
-      note: 4.6,
-      totalAvis: 98,
-      tempsLivraisonMin: 18,
-      tempsLivraisonMax: 30,
-      fraisLivraison: 1200,
-      ouvert: true,
-      abonnement: 'STANDARD',
-      certifie: false,
-      tauxCommission: 0.1,
-      commissionDueTotal: 0,
-      soldeWallet: 0,
-      modeLivraison: 'MIXTE',
-      actif: true,
-      proprietaireId: 3,
-    },
-  ];
+  // Aucune donnée de démo ici : le service ne renvoie que ce que dit l'API.
+  // (Avant, un catchError réinjectait de faux restaurants — ce qui faisait
+  // réapparaître des enseignes inexistantes après une suspension.)
 
   getRestaurants(filtres?: { search?: string; categorie?: string; ville?: string; all?: boolean }): Observable<Restaurant[]> {
     let params = new HttpParams();
@@ -76,15 +83,15 @@ export class RestaurantService {
     if (filtres?.ville) params = params.set('ville', filtres.ville);
     if (filtres?.all) params = params.set('all', 'true');
 
+    // Aucune donnée de démo : si l'API échoue on renvoie une liste vide,
+    // sinon de faux restaurants s'afficheraient à la place des vrais.
     return this.http.get<Restaurant[]>(this.apiUrl, { params }).pipe(
-      catchError(() => of(RestaurantService.MOCK_RESTAURANTS))
+      catchError(() => of([] as Restaurant[]))
     );
   }
 
   getRestaurant(id: number): Observable<Restaurant> {
-    return this.http.get<Restaurant>(`${this.apiUrl}/${id}`).pipe(
-      catchError(() => of(RestaurantService.MOCK_RESTAURANTS.find(r => r.id === id) as Restaurant))
-    );
+    return this.http.get<Restaurant>(`${this.apiUrl}/${id}`);
   }
 
   // PROTÉGÉ — Créer son restaurant (juste après inscription RESTAURANT)
@@ -112,14 +119,20 @@ export class RestaurantService {
   }
 
   getMonRestaurant(): Observable<Restaurant> {
-    return this.http.get<Restaurant>(`${environment.apiUrl}/restaurant/profil`).pipe(
-      catchError(() => of(RestaurantService.MOCK_RESTAURANTS[0]))
-    );
+    return this.http.get<Restaurant>(`${environment.apiUrl}/restaurant/profil`);
   }
 
   // ADMIN — Liste de tous les restaurants
   adminListRestaurants(): Observable<Restaurant[]> {
     return this.http.get<Restaurant[]>(`${environment.apiUrl}/admin/restaurants`);
+  }
+
+  /**
+   * ADMIN — Dossier complet d'un restaurant (coordonnées + CNI + façade),
+   * à consulter avant de valider le compte.
+   */
+  adminDossierRestaurant(id: number): Observable<DossierRestaurant> {
+    return this.http.get<DossierRestaurant>(`${environment.apiUrl}/admin/restaurants/${id}/dossier`);
   }
 
   // ADMIN — Toggle activation d'un restaurant
@@ -130,5 +143,20 @@ export class RestaurantService {
   // ADMIN — Certifier un restaurant
   adminToggleCertifie(id: number): Observable<Restaurant> {
     return this.http.patch<Restaurant>(`${environment.apiUrl}/admin/restaurants/${id}/certifier`, {});
+  }
+
+  // PROTÉGÉ — Statistiques réelles du restaurant connecté
+  getStats(): Observable<RestaurantStats> {
+    return this.http.get<RestaurantStats>(`${environment.apiUrl}/restaurant/stats`);
+  }
+
+  // PROTÉGÉ — Inviter un livreur interne (SMS ou email)
+  inviterLivreur(data: { nom: string; telephone?: string; email?: string; mode: 'SMS' | 'EMAIL' }): Observable<InvitationResult> {
+    return this.http.post<InvitationResult>(`${environment.apiUrl}/restaurant/inviter-livreur`, data);
+  }
+
+  // PROTÉGÉ — Liste de mes invitations envoyées
+  getMesInvitations(): Observable<InvitationLivreur[]> {
+    return this.http.get<InvitationLivreur[]>(`${environment.apiUrl}/restaurant/invitations`);
   }
 }

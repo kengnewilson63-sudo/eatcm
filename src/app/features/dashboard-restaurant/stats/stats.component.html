@@ -9,32 +9,45 @@
       <p class="text-2xl font-extrabold" [class]="stats().commissionDue > 0 ? 'text-amber-500' : 'text-success'">{{stats().commissionDue | number}} FCFA</p>
     </div>
   </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div class="dashboard-card"><p class="text-xs font-bold text-muted uppercase mb-1">Panier moyen</p><p class="text-2xl font-extrabold text-secondary">{{stats().panierMoyen | number}}</p><p class="text-xs text-muted mt-1">FCFA</p></div>
+    <div class="dashboard-card"><p class="text-xs font-bold text-muted uppercase mb-1">Taux d'acceptation</p><p class="text-2xl font-extrabold text-secondary">{{stats().tauxAcceptation}}%</p></div>
+    <div class="dashboard-card"><p class="text-xs font-bold text-muted uppercase mb-1">En cours</p><p class="text-2xl font-extrabold text-blue-500">{{stats().commandesEnCours}}</p></div>
+  </div>
   <div class="dashboard-card">
     <h3 class="font-bold text-secondary mb-5">Revenus par jour</h3>
-    <div class="flex items-end justify-between gap-2" style="height:120px">
-      @for (v of ventes(); track v.jour) {
-        <div class="flex-1 flex flex-col items-center gap-2">
-          <div class="w-full relative flex items-end justify-center" style="height:90px">
-            <div class="w-full rounded-t-lg" [style.height.%]="barHeight(v.revenus)" style="background:linear-gradient(to top,#FF5A36,#FF7A5C);min-height:4px"></div>
+    @if (ventes().length) {
+      <div class="flex items-end justify-between gap-2" style="height:120px">
+        @for (v of ventes(); track v.jour) {
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div class="w-full relative flex items-end justify-center" style="height:90px">
+              <div class="w-full rounded-t-lg" [style.height.%]="barHeight(v.revenus)" style="background:linear-gradient(to top,#FF5A36,#FF7A5C);min-height:4px"></div>
+            </div>
+            <p class="text-xs font-bold text-muted">{{v.jour}}</p>
           </div>
-          <p class="text-xs font-bold text-muted">{{v.jour}}</p>
-        </div>
-      }
-    </div>
+        }
+      </div>
+    } @else {
+      <p class="text-sm text-muted text-center py-6">{{ loading() ? 'Chargement…' : 'Aucune vente sur les 7 derniers jours' }}</p>
+    }
   </div>
   <div class="dashboard-card">
     <h3 class="font-bold text-secondary mb-4">Top plats</h3>
-    <div class="space-y-3">
-      @for (p of platsTop(); track p.nom; let i = $index) {
-        <div class="flex items-center gap-3">
-          <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold flex-shrink-0" [class]="i===0?'bg-amber-100 text-amber-600':i===1?'bg-gray-100 text-gray-500':'bg-orange-100 text-orange-500'">{{i+1}}</span>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-secondary truncate">{{p.nom}}</p>
-            <div class="flex-1 h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full bg-primary" [style.width.%]="(p.commandes/platsTop()[0].commandes)*100"></div></div>
+    @if (platsTop().length) {
+      <div class="space-y-3">
+        @for (p of platsTop(); track p.nom; let i = $index) {
+          <div class="flex items-center gap-3">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold flex-shrink-0" [class]="i===0?'bg-amber-100 text-amber-600':i===1?'bg-gray-100 text-gray-500':'bg-orange-100 text-orange-500'">{{i+1}}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-secondary truncate">{{p.nom}}</p>
+              <div class="flex-1 h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full bg-primary" [style.width.%]="(p.commandes/maxPlat)*100"></div></div>
+            </div>
+            <div class="text-right flex-shrink-0"><p class="text-sm font-extrabold text-secondary">{{p.commandes}} cmd</p><p class="text-xs text-muted">{{p.revenus | number}} FCFA</p></div>
           </div>
-          <div class="text-right flex-shrink-0"><p class="text-sm font-extrabold text-secondary">{{p.commandes}} cmd</p><p class="text-xs text-muted">{{p.revenus | number}} FCFA</p></div>
-        </div>
-      }
-    </div>
+        }
+      </div>
+    } @else {
+      <p class="text-sm text-muted text-center py-6">{{ loading() ? 'Chargement…' : 'Aucun plat commandé pour le moment' }}</p>
+    }
   </div>
 </div>

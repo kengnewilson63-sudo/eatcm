@@ -18,7 +18,7 @@ export class CommandeService {
     const zone = ZONES_LIVRAISON_DEFAULT.find(
       z => distanceKm >= z.distanceMinKm && distanceKm < z.distanceMaxKm
     );
-    return zone?.frais ?? 2500; // Au-delà de 10km = 2500 FCFA
+    return zone?.frais ?? 1500; // Au-delà de 10km = 2500 FCFA
   }
 
   // Calcule distance GPS entre deux points (formule Haversine)
@@ -70,5 +70,22 @@ export class CommandeService {
   }
   changerStatut(id: number, statut: string): Observable<Commande> {
     return this.http.patch<Commande>(`${environment.apiUrl}/commandes/${id}/statut`, { statut });
+  }
+
+  // ===== RESTAURANT =====
+
+  /** GET /api/commandes/restaurant — toutes les commandes reçues. */
+  getCommandesRestaurant(): Observable<Commande[]> {
+    return this.http.get<Commande[]>(`${environment.apiUrl}/commandes/restaurant`);
+  }
+
+  /** GET /api/commandes/restaurant/en-cours — commandes actives. */
+  getCommandesRestaurantEnCours(): Observable<Commande[]> {
+    return this.http.get<Commande[]>(`${environment.apiUrl}/commandes/restaurant/en-cours`);
+  }
+
+  /** GET /api/commandes/restaurant/historique — commandes terminées/annulées. */
+  getCommandesRestaurantHistorique(): Observable<Commande[]> {
+    return this.http.get<Commande[]>(`${environment.apiUrl}/commandes/restaurant/historique`);
   }
 }

@@ -87,7 +87,7 @@
               </p>
               <p class="text-xs text-amber-700 leading-relaxed">
                 Nous sommes actuellement à <strong>Douala</strong> uniquement.
-                Tu peux quand même créer un compte et être notifié quand on arrive dans ta ville ! 🚀
+                Tu peux quand même créer un compte et être notifié quand on arrive dans ta ville ! 
               </p>
             </div>
           </div>
@@ -100,7 +100,7 @@
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
             <p class="text-xs text-green-700 font-semibold">
-              ✅ Super ! EatsCM est disponible à {{ villeDetectee() }}
+              Super ! EatsCM est disponible à {{ villeDetectee() }}
             </p>
           </div>
         }
@@ -150,7 +150,7 @@
             <input type="tel" placeholder="6XX XXX XXX" [value]="telephone()" (input)="onPhoneInput($event)" maxlength="9" inputmode="numeric" pattern="[0-9]{9}" autocomplete="tel" class="input-field pl-14"/></div>
             <p class="text-[10px] text-muted">9 chiffres requis (ex: 677123456)</p>
             @if (telephone().length > 0 && telephone().length !== 9) {
-              <p class="text-[10px] text-red-500">⚠️ {{ telephone().length }}/9 chiffres</p>
+              <p class="text-[10px] text-red-500"> {{ telephone().length }}/9 chiffres</p>
             }
           </div>
 
